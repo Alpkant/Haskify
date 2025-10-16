@@ -1,41 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import './HaskellEditor.css';
-import haskellMonarch from '../../monaco-haskell'; 
+import './PythonEditor.css'; // Keep the same CSS file
 
 let editorInstance = null;
 
-function handleEditorWillMount(monaco) {
-  monaco.languages.register({ id: 'haskell' });
-  monaco.languages.setMonarchTokensProvider('haskell', haskellMonarch);
-  monaco.languages.setLanguageConfiguration('haskell', {
-    comments: {
-      lineComment: '--',
-      blockComment: ['{-', '-}'],
-    },
-    brackets: [
-      ['{', '}'],
-      ['[', ']'],
-      ['(', ')'],
-    ],
-    autoClosingPairs: [
-      { open: '{', close: '}' },
-      { open: '[', close: ']' },
-      { open: '(', close: ')' },
-      { open: '"', close: '"' },
-      { open: "'", close: "'" },
-    ],
-    surroundingPairs: [
-      { open: '{', close: '}' },
-      { open: '[', close: ']' },
-      { open: '(', close: ')' },
-      { open: '"', close: '"' },
-      { open: "'", close: "'" },
-    ],
-  });
-}
-
-export default function HaskellEditor({ sharedState, updateSharedState }) {
+export default function PythonEditor({ sharedState, updateSharedState }) {
   const [isRunning, setIsRunning] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [changedLines, setChangedLines] = useState([]);
@@ -91,11 +60,11 @@ export default function HaskellEditor({ sharedState, updateSharedState }) {
     }
 
     setIsRunning(true);
-    updateSharedState({ output: "> Running Haskell code..." });
+    updateSharedState({ output: "> Running Python code..." });
 
     try {
       console.log('Sending code to backend:', sharedState.code);
-      const response = await fetch(`${API_BASE}/run-haskell`, {
+      const response = await fetch(`${API_BASE}/run-python`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -134,11 +103,10 @@ export default function HaskellEditor({ sharedState, updateSharedState }) {
       <div className="editor-section">
         <Editor
           height="100%"
-          language="haskell"
+          language="python"
           theme="vs-dark"
           value={sharedState.code}
           onChange={(value) => updateSharedState({ code: value || '' })}
-          beforeMount={handleEditorWillMount}
           onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },
@@ -154,7 +122,9 @@ export default function HaskellEditor({ sharedState, updateSharedState }) {
             folding: false,
             autoClosingBrackets: 'always',
             formatOnType: true,
-            suggestOnTriggerCharacters: true
+            suggestOnTriggerCharacters: true,
+            tabSize: 4,
+            insertSpaces: true
           }}
         />
       </div>

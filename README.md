@@ -116,7 +116,7 @@ haskify/
 ├── src/                    # Frontend React application
 │   ├── Components/        # React components
 │   │   ├── AIAssistant/   # AI chat interface
-│   │   ├── HaskellEditor/ # Code editor component
+│   │   ├── PythonEditor/ # Code editor component
 │   │   ├── Header/        # Navigation header
 │   │   ├── Footer/        # Footer component
 │   │   └── ...
@@ -158,7 +158,7 @@ haskify/
 
 ### Customization
 
-- **Editor Theme**: Modify `src/Components/HaskellEditor/HaskellEditor.jsx`
+- **Editor Theme**: Modify `src/Components/PythonEditor/PythonEditor.jsx`
 - **AI Behavior**: Adjust prompts in `backend/server.js`
 - **Styling**: Customize Tailwind classes in component CSS files
 

@@ -5,7 +5,7 @@ import Header from './Components/Header/Header';
 import Footer from './Components/Footer/Footer';
 import UploadButton from './Components/UploadButton/UploadButton';
 import PdfViewer from './Components/PdfViewer/PdfViewer';
-import HaskellEditor from './Components/HaskellEditor/HaskellEditor';
+import PythonEditor from './Components/PythonEditor/PythonEditor';
 import AIAssistant from './Components/AIAssistant/AIAssistant';
 import ContactModal from './Components/ContactModal/ContactModal';
 import HowItWorksModal from './Components/HowItWorksModal/HowItWorksModal';
@@ -96,7 +96,7 @@ main = putStrLn "Hello, Haskell!"`,
                 <div className="code-ai-grid">
                   <div className="grid-item">
                     <h2 className="shared-title">Code Editor</h2>
-                    <HaskellEditor
+                    <PythonEditor
                       sharedState={sharedState}
                       updateSharedState={updateSharedState}
                     />
