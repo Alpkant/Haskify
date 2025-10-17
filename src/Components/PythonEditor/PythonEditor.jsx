@@ -1,16 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import './PythonEditor.css'; // Keep the same CSS file
+import './PythonEditor.css';
+import { loadPyodide } from 'pyodide';
 
 let editorInstance = null;
+let pyodideInstance = null;
 
 export default function PythonEditor({ sharedState, updateSharedState }) {
   const [isRunning, setIsRunning] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isPyodideReady, setIsPyodideReady] = useState(false);
   const [changedLines, setChangedLines] = useState([]);
   const [userInput, setUserInput] = useState('');
+  const stdout = (msg) => {
+    consoleOutput.push(msg);
+    console.log(msg);};
 
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
+  // Initialize Pyodide
+  useEffect(() => {
+    const initPyodide = async () => {
+      try {
+        updateSharedState({ output: "> Initializing Python environment..." });
+        pyodideInstance = await loadPyodide({
+                                            indexURL: `https://cdn.jsdelivr.net/pyodide/v0.27.7/full/`,
+                                            stdout: stdout,
+                                            stderr: stdout,
+                                            checkAPIVersion: true,
+                                        });
+        setIsPyodideReady(true);
+        updateSharedState({ output: "> Python environment ready!" });
+      } catch (error) {
+        console.error('Failed to initialize Pyodide:', error);
+        updateSharedState({ output: `> Error: Failed to initialize Python environment` });
+      }
+    };
+
+    initPyodide();
+  }, []);
 
   useEffect(() => {
     if (editorInstance && changedLines.length > 0) {
@@ -44,18 +70,9 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     editorInstance = editor;
   };
 
-  useEffect(() => {
-    fetch(`${API_BASE}/health`)
-      .then(() => setIsConnected(true))
-      .catch(() => {
-        setIsConnected(false);
-        updateSharedState({ output: "> Error: Backend server not connected" });
-      });
-  }, []);
-
   const handleRunCode = async () => {
-    if (!isConnected) {
-      updateSharedState({ output: "> Error: Cannot connect to execution server" });
+    if (!isPyodideReady) {
+      updateSharedState({ output: "> Error: Python environment not ready yet" });
       return;
     }
 
@@ -63,36 +80,32 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     updateSharedState({ output: "> Running Python code..." });
 
     try {
-      console.log('Sending code to backend:', sharedState.code);
-      const response = await fetch(`${API_BASE}/run-python`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          code: sharedState.code,
-          input: userInput 
-        })
-      });
-
-      console.log('Received response:', response.status);
-      let result;
-      try {
-        result = await response.json();
-        console.log('Parsed result:', result);
-      } catch (e) {
-        console.error('Error parsing response:', e);
-        updateSharedState({ output: "> Error: Could not parse error output" });
+      const code = sharedState.code;
+      
+      if (!code || code.trim() === '') {
+        updateSharedState({ output: "> No code to execute" });
         setIsRunning(false);
         return;
       }
 
-      if (!response.ok) {
-        updateSharedState({ output: result.output || `> Error: Execution failed!` });
-      } else {
-        updateSharedState({ output: result.output || "> Program executed (no output)" });
+      // Execute the Python code
+      const result = pyodideInstance.runPython(code);
+      
+      // Display the result
+      let output = "";
+      if (result !== undefined && result !== null) {
+        output += String(result);
       }
+      
+      updateSharedState({ 
+        output: output || "> Program executed (no output)" 
+      });
+
     } catch (error) {
-      console.error('Error executing code:', error);
-      updateSharedState({ output: `> Error: ${error.message || "Failed to execute code"}` });
+      console.error('Python execution error:', error);
+      updateSharedState({ 
+        output: `> Error: ${error.message || "Python execution failed"}` 
+      });
     } finally {
       setIsRunning(false);
     }
@@ -146,7 +159,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
             <button 
               className="run-button"
               onClick={handleRunCode}
-              disabled={isRunning || !isConnected}
+              disabled={isRunning || !isPyodideReady}
             >
               {isRunning ? 'Running...' : 'Run'}
             </button>

@@ -63,7 +63,7 @@ function topKChunks(chunks, query, k = 6) {
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  baseURL: "https://api.deepseek.com/v1",
+  baseURL: "https://openrouter.ai/api/v1",
 });
 
 const exampleConversations = [
@@ -142,18 +142,18 @@ app.post('/ai/ask', async (req, res) => {
         retrieved.map(r => `[${(r._title || r._from).slice(0,40)} #${r.idx}] ${r.text}`).join('\n---\n')
       : '';
 
-    const systemMessage = `You are a concise Haskell tutor. MAXIMUM 50 words per response.
+    const systemMessage = `You are a concise Python tutor. MAXIMUM 50 words per response.
 
 RULES:
-1. ONLY Haskell questions
+1. ONLY Python and programming questions
 2. Prefer information from CONTEXT if provided; if missing, say you don't know.
-3. NO complete solutions - only hints
+3. NO complete solutions and code - only hints
 4. Use ? placeholders
 5. One short code example max
-6. Do not answer non-Haskell topics; if off-topic, say you’re focused on Haskell.
+6. Do not answer non-Python topics; if off-topic, say you’re focused on Python.
 
 Current code:
-\`\`\`haskell
+\`\`\`python
 ${code || ''}
 \`\`\`
 ${output ? `Output: \`\`\`${output}\`\`\`` : ''}${contextBlock}
@@ -161,7 +161,7 @@ ${output ? `Output: \`\`\`${output}\`\`\`` : ''}${contextBlock}
 Keep it short. Hints only.`;
 
     const stream = await openai.chat.completions.create({
-      model: "deepseek-chat",
+      model: "google/gemma-3-27b-it:free",
       messages: [
         { role: "system", content: systemMessage },
         ...exampleConversations,

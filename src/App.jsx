@@ -16,10 +16,9 @@ function App() {
   const [pdfData, setPdfData] = useState({ url: null, name: null });
   const [showUploadButton, setShowUploadButton] = useState(false);
   const [sharedState, setSharedState] = useState({
-    code: `-- Your Haskell code here
-main :: IO ()
-main = putStrLn "Hello, Haskell!"`,
-    output: "> Ready to run Haskell code"
+    code: `# Your Python code here
+print("Welcome to Haskify! \\n Start coding now!")`,
+    output: "> Ready to run Python code"
   });
   const [isContactOpen, setContactOpen] = useState(false);
   const [isHowItWorksOpen, setHowItWorksOpen] = useState(false);

@@ -13,7 +13,7 @@ export default function HowItWorksModal({ isOpen, onClose }) {
         <p>
           Haskify connects a React frontend with a Node.js/Express backend.
           <br/><br/>
-          <strong>Code Execution:</strong> Your Haskell code from the editor is sent to the backend. The server compiles and runs it using GHC, capturing the output or any compilation/runtime errors. This result is then sent back to the frontend and displayed.
+          <strong>Code Execution:</strong> Your Python code from the editor is sent to the backend. The server compiles and runs it using GHC, capturing the output or any compilation/runtime errors. This result is then sent back to the frontend and displayed.
           <br/><br/>
           <strong>AI Assistant:</strong> The AI assistant sends your queries, along with your current code and output, to the backend. The backend uses a language model (like DeepSeek) to generate helpful responses based on the context provided.
           <br/><br/>

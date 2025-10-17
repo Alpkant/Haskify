@@ -22,7 +22,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Hi! How can I help you with your Haskell project today?";
+      "Hi! How can I help you with your Python project today?";
     let currentIndex = 0;
 
     setIsTyping(true);
@@ -305,7 +305,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
             >
               {code}
             </SyntaxHighlighter>
-            {language === "haskell" && (
+            {language === "python" && (
               <button
                 className="apply-code-button"
                 onClick={() =>
@@ -331,7 +331,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   return (
     <div className="ai-assistant">
       <div className="ai-header">
-        <img src={blackStars} alt="Haskify Logo" className="ai-logo" />
+        <img src={blackStars} alt="Python Logo" className="ai-logo" />
         <p className="ai-subheader">Ask our AI anything</p>
         <button
           className="generate-quiz-button"
