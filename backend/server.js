@@ -121,7 +121,7 @@ app.post('/ai/ask', async (req, res) => {
 
     if (!isHaskellQuestion) {
       return res.json({
-        response: "I’m focused on Haskell and functional programming. Ask me about Haskell concepts, debugging type errors, or improving your code."
+        response: "I'm focused on Haskell and functional programming. Ask me about Haskell concepts, debugging type errors, or improving your code."
       });
     }
 
@@ -150,7 +150,7 @@ RULES:
 3. NO complete solutions and code - only hints
 4. Use ? placeholders
 5. One short code example max
-6. Do not answer non-Python topics; if off-topic, say you’re focused on Python.
+6. Do not answer non-Python topics; if off-topic, say you're focused on Python.
 
 Current code:
 \`\`\`python
@@ -183,7 +183,7 @@ Keep it short. Hints only.`;
   }
 });
 
-app.post('/run-haskell', executionLimiter, async (req, res) => {
+app.post('/run-python', executionLimiter, async (req, res) => {
   try {
     const code = req.body.code;
     if (!code || typeof code !== 'string' || code.length > 10000) {
@@ -193,11 +193,11 @@ app.post('/run-haskell', executionLimiter, async (req, res) => {
       return res.status(400).json({ output: "Unsafe operations not allowed" });
     }
 
-    const tempFile = `/tmp/haskell-${Date.now()}.hs`;
+    const tempFile = `/tmp/python-${Date.now()}.py`;
     fs.writeFileSync(tempFile, code);
 
     const { stderr: compileError } = await execPromise(
-      `ghc ${tempFile} -o ${tempFile}.out`,
+      `python3 ${tempFile}`,
       { maxBuffer: 1024 * 1024 }
     );
     if (compileError) {
@@ -206,7 +206,7 @@ app.post('/run-haskell', executionLimiter, async (req, res) => {
 
     // Run
     const { stdout, stderr } = await execPromise(
-      `echo "${req.body.input || ''}" | timeout 10s ${tempFile}.out`,
+      `echo "${req.body.input || ''}" | timeout 10s python3 ${tempFile}`,
       { maxBuffer: 1024 * 1024 }
     );
     return res.json({ output: stdout || stderr || "> Program executed (no output)" });

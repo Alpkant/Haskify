@@ -11,22 +11,46 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
   const [isPyodideReady, setIsPyodideReady] = useState(false);
   const [changedLines, setChangedLines] = useState([]);
   const [userInput, setUserInput] = useState('');
-  const stdout = (msg) => {
-    consoleOutput.push(msg);
-    console.log(msg);};
-
 
   // Initialize Pyodide
   useEffect(() => {
     const initPyodide = async () => {
       try {
         updateSharedState({ output: "> Initializing Python environment..." });
+        
         pyodideInstance = await loadPyodide({
-                                            indexURL: `https://cdn.jsdelivr.net/pyodide/v0.27.7/full/`,
-                                            stdout: stdout,
-                                            stderr: stdout,
-                                            checkAPIVersion: true,
-                                        });
+          indexURL: `https://cdn.jsdelivr.net/pyodide/v0.27.7/full/`,
+          checkAPIVersion: true,
+        });
+
+        // Set up proper stdout/stderr handling
+        pyodideInstance.runPython(`
+import sys
+from io import StringIO
+
+class OutputCapture:
+    def __init__(self):
+        self.output = []
+    
+    def write(self, text):
+        if text.strip():
+            self.output.append(text.rstrip())
+    
+    def flush(self):
+        pass
+    
+    def get_output(self):
+        return '\\n'.join(self.output)
+
+# Create output capture instances
+stdout_capture = OutputCapture()
+stderr_capture = OutputCapture()
+
+# Redirect stdout and stderr
+sys.stdout = stdout_capture
+sys.stderr = stderr_capture
+        `);
+
         setIsPyodideReady(true);
         updateSharedState({ output: "> Python environment ready!" });
       } catch (error) {
@@ -88,13 +112,64 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
         return;
       }
 
+      // Clear previous output
+      pyodideInstance.runPython(`
+stdout_capture.output.clear()
+stderr_capture.output.clear()
+      `);
+
+      // Handle user input if provided
+      if (userInput) {
+        pyodideInstance.runPython(`
+import sys
+from io import StringIO
+
+class InputWrapper:
+    def __init__(self, input_text):
+        self.input_text = input_text.split('\\n')
+        self.position = 0
+    
+    def readline(self):
+        if self.position < len(self.input_text):
+            result = self.input_text[self.position] + '\\n'
+            self.position += 1
+            return result
+        return ''
+
+# Replace stdin with our input wrapper
+sys.stdin = InputWrapper('${userInput.replace(/'/g, "\\'")}')
+        `);
+      } else {
+        // Disable input() function if no user input provided
+        pyodideInstance.runPython(`
+import sys
+from io import StringIO
+
+class NoInputWrapper:
+    def readline(self):
+        raise OSError("Input not available - please provide input in the input field")
+
+sys.stdin = NoInputWrapper()
+        `);
+      }
+
       // Execute the Python code
       const result = pyodideInstance.runPython(code);
       
+      // Get captured output
+      const stdoutOutput = pyodideInstance.runPython('stdout_capture.get_output()');
+      const stderrOutput = pyodideInstance.runPython('stderr_capture.get_output()');
+      
       // Display the result
       let output = "";
-      if (result !== undefined && result !== null) {
-        output += String(result);
+      if (stdoutOutput) {
+        output += stdoutOutput;
+      }
+      if (stderrOutput) {
+        output += (output ? "\n" : "") + stderrOutput;
+      }
+      if (result !== undefined && result !== null && result !== "") {
+        output += (output ? "\n" : "") + String(result);
       }
       
       updateSharedState({ 
