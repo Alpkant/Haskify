@@ -422,3 +422,123 @@ const sessionSchema = new mongoose.Schema({
   ]
 });
 const Session = mongoose.models.Session || mongoose.model('Session', sessionSchema);
+
+// User Schema
+const userSchema = new mongoose.Schema({
+  userId: { type: String, required: true, unique: true },
+  createdAt: { type: Date, default: Date.now },
+  lastLogin: { type: Date, default: Date.now }
+});
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+// Login endpoint
+app.post('/api/login', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    console.log('Login attempt for userId:', userId); // Debug log
+    
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    const trimmedUserId = userId.trim();
+    console.log('Trimmed userId:', trimmedUserId); // Debug log
+    
+    // Check if user exists
+    let user = await User.findOne({ userId: trimmedUserId });
+    console.log('Found user:', user); // Debug log
+    
+    if (!user) {
+      console.log('No user found for userId:', trimmedUserId); // Debug log
+      return res.status(404).json({ success: false, error: 'Invalid User ID' });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    return res.json({ 
+      success: true, 
+      user: { userId: user.userId, lastLogin: user.lastLogin }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ success: false, error: 'Login failed' });
+  }
+});
+
+// Create user endpoint (for you to create users manually)
+app.post('/api/create-user', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      return res.status(400).json({ success: false, error: 'User ID is required' });
+    }
+
+    const trimmedUserId = userId.trim();
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ userId: trimmedUserId });
+    if (existingUser) {
+      return res.status(409).json({ success: false, error: 'User already exists' });
+    }
+
+    const user = new User({ userId: trimmedUserId });
+    await user.save();
+
+    return res.json({ 
+      success: true, 
+      user: { userId: user.userId, createdAt: user.createdAt }
+    });
+  } catch (err) {
+    console.error('Create user error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to create user' });
+  }
+});
+
+// Verify session endpoint
+app.get('/api/verify-session', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID required' });
+    }
+
+    const user = await User.findOne({ userId });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Invalid session' });
+    }
+
+    return res.json({ success: true, user: { userId: user.userId } });
+  } catch (err) {
+    console.error('Session verification error:', err);
+    return res.status(500).json({ success: false, error: 'Session verification failed' });
+  }
+});
+
+// Add this debug endpoint
+app.get('/api/debug-collection', async (req, res) => {
+  try {
+    const collectionName = User.collection.name;
+    const dbName = User.db.name;
+    console.log('Collection name:', collectionName);
+    console.log('Database name:', dbName);
+    
+    // Try to find the admin user
+    const adminUser = await User.findOne({ userId: 'admin' });
+    console.log('Admin user found:', adminUser);
+    
+    return res.json({ 
+      collectionName, 
+      dbName, 
+      adminUser,
+      totalUsers: await User.countDocuments()
+    });
+  } catch (err) {
+    console.error('Debug error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});

@@ -9,9 +9,12 @@ import PythonEditor from './Components/PythonEditor/PythonEditor';
 import AIAssistant from './Components/AIAssistant/AIAssistant';
 import ContactModal from './Components/ContactModal/ContactModal';
 import HowItWorksModal from './Components/HowItWorksModal/HowItWorksModal';
+import Login from './Components/Login/Login';
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
   const [msgIndex, setMsgIndex] = useState(0);
   const [pdfData, setPdfData] = useState({ url: null, name: null });
   const [showUploadButton, setShowUploadButton] = useState(false);
@@ -30,19 +33,39 @@ print("Welcome to Haskify! \\n Start coding now!")`,
     "Just a moment…"
   ];
 
+  // Check for existing session on app load
   useEffect(() => {
-    const checkBackendHealth = async () => {
+    const checkSession = async () => {
       try {
-        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
-        const response = await fetch(`${API_BASE}/health`);
-        if (!response.ok) throw new Error();
-      } catch {
-        setSharedState(prev => ({ ...prev, output: "> Error: Backend not connected" }));
+        const savedUser = localStorage.getItem('haskify_user');
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          
+          // Verify session with backend
+          const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+          const response = await fetch(`${API_BASE}/api/verify-session?userId=${userData.userId}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setUser(userData);
+              setIsAuthenticated(true);
+            } else {
+              localStorage.removeItem('haskify_user');
+            }
+          } else {
+            localStorage.removeItem('haskify_user');
+          }
+        }
+      } catch (error) {
+        console.error('Session check failed:', error);
+        localStorage.removeItem('haskify_user');
       } finally {
         setLoading(false);
       }
     };
-    checkBackendHealth();
+
+    checkSession();
   }, []);
 
   useEffect(() => {
@@ -53,6 +76,17 @@ print("Welcome to Haskify! \\n Start coding now!")`,
     return () => clearInterval(iv);
   }, [loading, loadingMessages.length]);
 
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('haskify_user');
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
   const handlePdfUpload = (url, name) => {
     if (pdfData.url) URL.revokeObjectURL(pdfData.url);
     setPdfData({ url, name });
@@ -62,6 +96,28 @@ print("Welcome to Haskify! \\n Start coding now!")`,
     setSharedState(prev => ({ ...prev, ...newState }));
   };
 
+  // Show loading screen
+  if (loading) {
+    return (
+      <div className="loading-overlay">
+        <div className="loading-spinner">
+          <span className="dot" />
+          <span className="dot" />
+          <span className="dot" />
+        </div>
+        <p className="loading-text">
+          {loadingMessages[msgIndex]}
+        </p>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // Show main app if authenticated
   return (
     <BrowserRouter>
       <Routes>
@@ -69,20 +125,11 @@ print("Welcome to Haskify! \\n Start coding now!")`,
           path="/"
           element={
             <div className="app-layout">
-              {loading && (
-                <div className="loading-overlay">
-                  <div className="loading-spinner">
-                    <span className="dot" />
-                    <span className="dot" />
-                    <span className="dot" />
-                  </div>
-                  <p className="loading-text">
-                    {loadingMessages[msgIndex]}
-                  </p>
-                </div>
-              )}
-
-              <Header onHowItWorksClick={() => setHowItWorksOpen(true)} />
+              <Header 
+                onHowItWorksClick={() => setHowItWorksOpen(true)}
+                user={user}
+                onLogout={handleLogout}
+              />
               <main className="main-content">
                 {showUploadButton && (
                   <UploadButton onPdfUpload={handlePdfUpload} />

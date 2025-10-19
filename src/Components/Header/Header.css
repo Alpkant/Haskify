@@ -78,3 +78,29 @@
 .nav-link {
   font-family: inherit; 
 }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-id {
+  color: #718096;
+  font-size: 14px;
+}
+
+.logout-button {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logout-button:hover {
+  background: #c53030;
+}

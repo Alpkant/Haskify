@@ -14,10 +14,17 @@ export default function Header({ onHowItWorksClick }) {
             <span className="app-name">Haskify</span>
           </Link>
         </div>
+      
         <nav className="header-nav">
           <a href="/" className="nav-link">Home</a>
           <button onClick={onHowItWorksClick} className="nav-link-button">How Does It Work?</button>
         </nav>
+        <div className="user-info">
+        <span className="user-id">User: {user?.userId}</span>
+        <button onClick={onLogout} className="logout-button">
+          Logout
+        </button>
+      </div>
       </div>
     </header>
   );
