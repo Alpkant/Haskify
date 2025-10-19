@@ -90,17 +90,21 @@
   font-size: 14px;
 }
 
+
 .logout-button {
-  background: #e53e3e;
-  color: white;
+  background-color: #D9D9D9;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  color: #ef4444;
+  font-weight: 500;
+  font-size: 1.3rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+  font-family: inherit;
+  text-decoration: none;
 }
 
 .logout-button:hover {
-  background: #c53030;
+  background-color: rgba(245, 80, 80, 0.272);
 }
