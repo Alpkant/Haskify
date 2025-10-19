@@ -6,6 +6,14 @@ import { loadPyodide } from 'pyodide';
 let editorInstance = null;
 let pyodideInstance = null;
 
+// Add console output capture
+let consoleOutput = [];
+
+const stdout = (msg) => {
+  consoleOutput.push(String(msg));
+  console.log(msg);
+};
+
 export default function PythonEditor({ sharedState, updateSharedState }) {
   const [isRunning, setIsRunning] = useState(false);
   const [isPyodideReady, setIsPyodideReady] = useState(false);
@@ -18,39 +26,28 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       try {
         updateSharedState({ output: "> Initializing Python environment..." });
         
+        // Clear console output before initialization
+        consoleOutput = [];
+        
         pyodideInstance = await loadPyodide({
-          indexURL: `https://cdn.jsdelivr.net/pyodide/v0.27.7/full/`,
+          indexURL: `https://cdn.jsdelivr.net/pyodide/v0.28.3/full/`,
+          stdout: stdout,
+          stderr: stdout,
           checkAPIVersion: true,
         });
-
-        // Set up proper stdout/stderr handling
-        pyodideInstance.runPython(`
-import sys
-from io import StringIO
-
-class OutputCapture:
-    def __init__(self):
-        self.output = []
-    
-    def write(self, text):
-        if text.strip():
-            self.output.append(text.rstrip())
-    
-    def flush(self):
-        pass
-    
-    def get_output(self):
-        return '\\n'.join(self.output)
-
-# Create output capture instances
-stdout_capture = OutputCapture()
-stderr_capture = OutputCapture()
-
-# Redirect stdout and stderr
-sys.stdout = stdout_capture
-sys.stderr = stderr_capture
-        `);
-
+        
+        // Load common packages for CS students
+        await pyodideInstance.loadPackage([
+          'numpy',      // For numerical computations and arrays
+          'pandas',     // For data analysis and manipulation
+          'matplotlib', // For data visualization
+          'scipy',      // For scientific computing
+          'scikit-learn', // For machine learning
+          'scikit-image', // For image processing
+          'pyodide-http',  // For better HTTP support
+          'micropip',      // For installing additional packages
+        ]);
+        
         setIsPyodideReady(true);
         updateSharedState({ output: "> Python environment ready!" });
       } catch (error) {
@@ -112,64 +109,23 @@ sys.stderr = stderr_capture
         return;
       }
 
-      // Clear previous output
-      pyodideInstance.runPython(`
-stdout_capture.output.clear()
-stderr_capture.output.clear()
-      `);
-
-      // Handle user input if provided
-      if (userInput) {
-        pyodideInstance.runPython(`
-import sys
-from io import StringIO
-
-class InputWrapper:
-    def __init__(self, input_text):
-        self.input_text = input_text.split('\\n')
-        self.position = 0
-    
-    def readline(self):
-        if self.position < len(self.input_text):
-            result = self.input_text[self.position] + '\\n'
-            self.position += 1
-            return result
-        return ''
-
-# Replace stdin with our input wrapper
-sys.stdin = InputWrapper('${userInput.replace(/'/g, "\\'")}')
-        `);
-      } else {
-        // Disable input() function if no user input provided
-        pyodideInstance.runPython(`
-import sys
-from io import StringIO
-
-class NoInputWrapper:
-    def readline(self):
-        raise OSError("Input not available - please provide input in the input field")
-
-sys.stdin = NoInputWrapper()
-        `);
-      }
-
-      // Execute the Python code
+      // Clear console output before running new code
+      consoleOutput = [];
+      
       const result = pyodideInstance.runPython(code);
       
-      // Get captured output
-      const stdoutOutput = pyodideInstance.runPython('stdout_capture.get_output()');
-      const stderrOutput = pyodideInstance.runPython('stderr_capture.get_output()');
-      
-      // Display the result
+      // Combine console output and result
       let output = "";
-      if (stdoutOutput) {
-        output += stdoutOutput;
+      
+      // Add console output (print statements, etc.)
+      if (consoleOutput.length > 0) {
+        output += consoleOutput.join('\n');
       }
-      if (stderrOutput) {
-        output += (output ? "\n" : "") + stderrOutput;
-      }
-      if (result !== undefined && result !== null && result !== "") {
-        output += (output ? "\n" : "") + String(result);
+      
+      // Add the result if there is one
+      if (result !== undefined && result !== null) {
+        if (output) output += '\n';
+        output += String(result);
       }
       
       updateSharedState({ 

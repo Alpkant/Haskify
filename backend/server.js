@@ -229,7 +229,7 @@ app.post('/api/contact', async (req, res) => {
   try {
     await transporter.sendMail({
       from: email,
-      to: 'xx@yy.com',
+      to: 'kantarci@em.uni-frankfurt.de',
       subject: `Contact Form Submission from ${name}`,
       text: message,
       replyTo: email

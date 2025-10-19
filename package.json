@@ -17,7 +17,7 @@
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/vite": "^4.1.4",
-    "pyodide": "^0.27.5",
+    "pyodide": "^0.28.3",
     "react": "^19.0.0",
     "react-chatbotify": "^2.0.0-beta.33",
     "react-dom": "^19.0.0",
