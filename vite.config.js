@@ -5,12 +5,19 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['pyodide', 'pyodide.asm.js']
+    exclude: ['pyodide']
   },
   build: {
-    // optionally avoid bundling wasm modules
     rollupOptions: {
-      external: ['pyodide']
+      external: ['pyodide'],
+      output: {
+        globals: {
+          pyodide: 'pyodide'
+        }
+      }
     }
+  },
+  define: {
+    global: 'globalThis',
   }
 })

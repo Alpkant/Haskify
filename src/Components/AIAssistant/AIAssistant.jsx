@@ -186,6 +186,11 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   const sendToBackend = async (query) => {
     try {
       const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      
+      // Get userId from localStorage
+      const savedUser = localStorage.getItem('haskify_user');
+      const userId = savedUser ? JSON.parse(savedUser).userId : null;
+      
       const response = await fetch(`${API_BASE}/ai/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,7 +198,9 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           query,
           code: sharedState.code,
           output: sharedState.output,
-          materialIds: materialIds.map((m) => m.id), 
+          materialIds: materialIds.map((m) => m.id),
+          userId, // Add this back
+          sessionId: sessionIdRef.current
         }),
       });
 
@@ -248,7 +255,11 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
             })
               .then((res) => res.json())
               .then((data) => {
-                if (data.success && data.id) sessionIdRef.current = data.id;
+                if (data.success && data.id) {
+                  sessionIdRef.current = data.id;
+                  // Store sessionId in localStorage for Python Editor
+                  localStorage.setItem('haskify_session', data.id);
+                }
               });
           } else {
             fetch(`${API_BASE}/api/save-session/${sessionIdRef.current}`, {

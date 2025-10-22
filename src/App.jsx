@@ -83,6 +83,7 @@ print("Welcome to Haskify! \\n Start coding now!")`,
 
   const handleLogout = () => {
     localStorage.removeItem('haskify_user');
+    localStorage.removeItem('haskify_session'); // Add this
     setUser(null);
     setIsAuthenticated(false);
   };

@@ -83,10 +83,10 @@ const exampleConversations = [
 
 app.post('/ai/ask', async (req, res) => {
   try {
-    const { query, code, output, materialIds } = req.body;
+    const { query, code, output, materialIds, userId, sessionId } = req.body;
 
     const simpleTestMessages = [
-      'test','hello','hi','hey','ok','yes','no','cool','nice',
+      'test','hello','hi','hey','cool','nice',
       'just testing','i am just testing','hello there','hi there','hallo','halo'
     ];
     const queryLower = (query || '').toLowerCase().trim();
@@ -174,6 +174,39 @@ Keep it short. Hints only.`;
     let responseText = "";
     for await (const chunk of stream) {
       responseText += chunk.choices[0]?.delta?.content || "";
+    }
+
+    try {
+      // 1. Log individual interaction
+      await Interaction.create({
+        userId: userId || null,
+        sessionId: sessionId || null,
+        type: 'ai',
+        question: query || '',
+        aiResponse: responseText || '',
+        code: code || '',
+        output: output || '',
+        materialIds: Array.isArray(materialIds) ? materialIds : []
+      });
+
+      // 2. Update session if sessionId exists
+      if (sessionId) {
+        await Session.findByIdAndUpdate(
+          sessionId,
+          { 
+            $push: { 
+              session: { 
+                question: query, 
+                response: responseText, 
+                time: new Date() 
+              } 
+            } 
+          },
+          { new: true }
+        );
+      }
+    } catch (logErr) {
+      console.warn('Usage log failed:', logErr?.message);
     }
 
     return res.json({ response: responseText });
@@ -423,6 +456,22 @@ const sessionSchema = new mongoose.Schema({
 });
 const Session = mongoose.models.Session || mongoose.model('Session', sessionSchema);
 
+// === Add under your other schemas ===
+const interactionSchema = new mongoose.Schema({
+  userId: { type: String, index: true },
+  sessionId: { type: String, index: true, sparse: true },
+  type: { type: String, enum: ['ai', 'run'], required: true }, // 'ai' = AI Q/A, 'run' = code execution
+  question: String,           // for type 'ai'
+  aiResponse: String,         // for type 'ai'
+  code: String,               // captured code snapshot
+  output: String,             // code output or current output context
+  materialIds: [String],      // attached materials on that turn
+  meta: Object,               // room for future fields
+  createdAt: { type: Date, default: Date.now }
+});
+interactionSchema.index({ userId: 1, createdAt: -1 });
+const Interaction = mongoose.models.Interaction || mongoose.model('Interaction', interactionSchema);
+
 // User Schema
 const userSchema = new mongoose.Schema({
   userId: { type: String, required: true, unique: true },
@@ -540,5 +589,51 @@ app.get('/api/debug-collection', async (req, res) => {
   } catch (err) {
     console.error('Debug error:', err);
     return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/log/run', async (req, res) => {
+  try {
+    const { userId, sessionId, code, output } = req.body;
+    
+    // Log individual interaction
+    await Interaction.create({
+      userId: userId || null,
+      sessionId: sessionId || null,
+      type: 'run',
+      code: code || '',
+      output: output || ''
+    });
+
+    // Update session if sessionId exists
+    if (sessionId) {
+      await Session.findByIdAndUpdate(
+        sessionId,
+        { 
+          $push: { 
+            session: { 
+              question: `Code Execution: ${code.substring(0, 50)}...`, 
+              response: output, 
+              time: new Date() 
+            } 
+          } 
+        },
+        { new: true }
+      );
+    }
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Usage log (run) failed:', err);
+    return res.status(500).json({ success: false });
+  }
+});
+
+app.get('/api/logs/:userId', async (req, res) => {
+  try {
+    const logs = await Interaction.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(200);
+    res.json({ logs });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });

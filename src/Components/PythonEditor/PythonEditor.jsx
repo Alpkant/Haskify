@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import './PythonEditor.css';
-import { loadPyodide } from 'pyodide';
 
 let editorInstance = null;
 let pyodideInstance = null;
@@ -28,6 +27,9 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
         
         // Clear console output before initialization
         consoleOutput = [];
+        
+        // Dynamic import to avoid bundling issues
+        const { loadPyodide } = await import('pyodide');
         
         pyodideInstance = await loadPyodide({
           indexURL: `https://cdn.jsdelivr.net/pyodide/v0.28.3/full/`,
@@ -131,6 +133,29 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       updateSharedState({ 
         output: output || "> Program executed (no output)" 
       });
+
+      // Log the code execution
+      try {
+        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+        const savedUser = localStorage.getItem('haskify_user');
+        const userId = savedUser ? JSON.parse(savedUser).userId : null;
+        
+        // Get sessionId from localStorage (set by AI Assistant)
+        const savedSessionId = localStorage.getItem('haskify_session');
+        
+        await fetch(`${API_BASE}/api/log/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            sessionId: savedSessionId,
+            code: code,
+            output: output || "> Program executed (no output)"
+          })
+        });
+      } catch (logErr) {
+        console.warn('Code execution log failed:', logErr);
+      }
 
     } catch (error) {
       console.error('Python execution error:', error);

@@ -83,7 +83,7 @@ export default function Login({ onLogin }) {
 
         <div className="login-footer">
           <p className="help-text">
-            Don't have a User ID? Contact your instructor.
+            Don't have a User ID or having trouble logging in? <br />Contact <a href="mailto:kantarci@em.uni-frankfurt.de">kantarci@em.uni-frankfurt.de</a>.
           </p>
         </div>
       </div>
