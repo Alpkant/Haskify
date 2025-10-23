@@ -69,15 +69,63 @@ const openai = new OpenAI({
 const exampleConversations = [
   {
     role: "system",
-    content: "Example 1:\nUser: \"I'm stuck with monads\"\nAssistant: \"Try this:\n```haskell\nsafeDivide :: Double -> Double -> Maybe Double\nsafeDivide _ 0 = Nothing\nsafeDivide x y = ?\n```\nWhat happens when chaining?\""
+    content: "Example 1:\nUser: \"My function isn't working\"\nAssistant: \"Let's debug step by step. What's the error message? Try adding `print()` statements to see what values your variables have.\""
   },
   {
     role: "system",
-    content: "Example 2:\nUser: \"My code has type errors\"\nAssistant: \"Run `:t functionName` in GHCi. Check type signatures.\""
+    content: "Example 2:\nUser: \"How do I create a list?\"\nAssistant: \"Use square brackets: `my_list = [1, 2, 3]`. For empty list: `my_list = []`. What will you store in it?\""
   },
   {
     role: "system",
-    content: "Example 3:\nUser: \"Write a reverse function\"\nAssistant: \"```haskell\nreverse :: [a] -> [a]\nreverse [] = ?\nreverse (x:xs) = ?\n```\nHow combine head with reversed tail?\""
+    content: "Example 3:\nUser: \"My code has an error\"\nAssistant: \"Check the error message carefully. Common issues: missing colons `:`, wrong indentation, or undefined variables. What does the error say?\""
+  },
+  {
+    role: "system",
+    content: "Example 4:\nUser: \"How do I loop through a list?\"\nAssistant: \"Use `for item in my_list:` or `for i in range(len(my_list)):`. Which approach do you need - just the values or also the index?\""
+  },
+  {
+    role: "system",
+    content: "Example 5:\nUser: \"What's wrong with my if statement?\"\nAssistant: \"Check: did you add a colon `:` after the condition? Is your indentation correct? Show me the code and I'll help spot the issue.\""
+  },
+  {
+    role: "system",
+    content: "Example 6:\nUser: \"How do I read a file?\"\nAssistant: \"Use `with open('filename.txt', 'r') as file:` then `content = file.read()`. What type of file are you working with?\""
+  },
+  {
+    role: "system",
+    content: "Example 7:\nUser: \"My list comprehension isn't working\"\nAssistant: \"Check the syntax: `[expression for item in iterable if condition]`. What are you trying to create? Show me the code.\""
+  },
+  {
+    role: "system",
+    content: "Example 8:\nUser: \"How do I handle errors?\"\nAssistant: \"Use try-except: `try: risky_code() except ErrorType: handle_error()`. What specific error are you getting?\""
+  },
+  {
+    role: "system",
+    content: "Example 9:\nUser: \"My function returns None\"\nAssistant: \"Check if you have a `return` statement. Functions without `return` give `None`. What should your function return?\""
+  },
+  {
+    role: "system",
+    content: "Example 10:\nUser: \"How do I import modules?\"\nAssistant: \"Use `import module_name` or `from module import function`. What functionality do you need? Check if the module is installed first.\""
+  },
+  {
+    role: "system",
+    content: "Example 11:\nUser: \"My dictionary is empty\"\nAssistant: \"Check how you're adding items. Use `my_dict['key'] = value` or `my_dict.update({'key': 'value'})`. What are you trying to store?\""
+  },
+  {
+    role: "system",
+    content: "Example 12:\nUser: \"How do I sort a list?\"\nAssistant: \"Use `my_list.sort()` to modify in-place, or `sorted(my_list)` for a new list. Do you need ascending or descending order?\""
+  },
+  {
+    role: "system",
+    content: "Example 13:\nUser: \"My string methods aren't working\"\nAssistant: \"Remember strings are immutable - methods return new strings. Use `new_string = old_string.method()`. What transformation do you need?\""
+  },
+  {
+    role: "system",
+    content: "Example 14:\nUser: \"How do I create a class?\"\nAssistant: \"Use `class MyClass:` with `def __init__(self):` for the constructor. What attributes should your class have?\""
+  },
+  {
+    role: "system",
+    content: "Example 15:\nUser: \"My code is too slow\"\nAssistant: \"Profile first with `time.time()` or `cProfile`. Common optimizations: use list comprehensions, avoid nested loops, or use built-in functions. What's taking time?\""
   }
 ];
 
@@ -87,113 +135,16 @@ app.post('/ai/ask', async (req, res) => {
 
     const simpleTestMessages = [
       'test','hello','hi','hey','cool','nice',
-      'just testing','i am just testing','hello there','hi there','hallo','halo'
+      'just testing','i am just testing','hello there','hi there','hallo','halo',"fuck you", "i don't care"
     ];
     const queryLower = (query || '').toLowerCase().trim();
     const isSimpleTest = simpleTestMessages.some(
-      msg => queryLower === msg || (queryLower.includes(msg) && queryLower.length < 20)
+      msg => queryLower === msg || (queryLower.includes(msg) && queryLower.length < 10)
     );
     if (isSimpleTest) {
-      return res.json({ response: "Hi! I focus on Python and functional programming. Ask me about types, recursion, monads, IO, etc." });
+      return res.json({ response: "Hi! I'm here to help with Python programming. Ask me about lists, functions, classes, loops, or any Python concepts!" });
     }
 
-    const pythonKeywords = [
-      'python','function','class','def','lambda','decorator','async','await','for loop',
-      'while loop','if statement','list comprehension','dict comprehension',
-      'tuple','list','set','dictionary','import','module','package','object',
-      'inheritance','exception','error','try','except','finally','raise',
-      'with','context manager','generator','iterator','yield','recursion',
-      'type hint','typing','unittest','pytest','venv','pip','virtualenv',
-      'dataclass','property','staticmethod','classmethod','self','init',
-      'numpy','pandas','tensorflow','torch','flask','fastapi','django',
-      'variable','assignment','operator','comparison','boolean','true','false',
-      'none','null','string','integer','float','boolean','type','isinstance',
-      'enumerate','zip','map','filter','reduce','sorted','reversed',
-      'split','join','strip','replace','format','f-string','string formatting',
-      'file','read','write','append','close','path','os','sys','json',
-      'requests','urllib','http','api','rest','json','xml','csv',
-      'matplotlib','seaborn','plot','chart','graph','visualization',
-      'scikit-learn','sklearn','machine learning','ml','ai','artificial intelligence',
-      'dataframe','series','index','column','row','merge','join','groupby',
-      'pandas','numpy','array','matrix','vector','tensor','dimension',
-      'debugging','debug','breakpoint','pdb','logging','log','print',
-      'testing','test','assert','mock','fixture','coverage','unit test',
-      'oop','object oriented','encapsulation','polymorphism','abstraction',
-      'algorithm','data structure','stack','queue','tree','graph','hash',
-      'sorting','searching','binary search','quicksort','mergesort',
-      'complexity','big o','time complexity','space complexity','optimization',
-      'code', 'programming', 'program', 'script', 'coding', 'developer', 'development',
-      'working', 'incorrect', 'wrong', 'error', 'bug', 'fix', 'help', 'problem',
-      'issue', 'troubleshoot', 'debug', 'check', 'review', 'analyze', 'improve',
-      'optimize', 'refactor', 'clean', 'best practice', 'solution', 'approach'
-    ];
-    const pythonCodePatterns = [
-      // Function and class definitions
-      /\bdef\s+\w+\s*\(/, /\bclass\s+\w+\s*:/, /lambda\s/, 
-      
-      // Imports
-      /import\s+\w+/, /from\s+\w+\s+import/, /import\s+\w+\s+as\s+\w+/,
-      
-      // Async patterns
-      /async\s+def/, /await\s/, 
-      
-      // Control flow
-      /try\s*:/, /except\s+\w+/, /finally\s*:/, /with\s+\w+/, 
-      /for\s+\w+\s+in\s+/, /while\s+.*:/, /if\s+.*:/, /elif\s+.*:/, /else\s*:/,
-      
-      // Common functions
-      /print\s*\(/, /return\s/, /yield\s/, /break\s/, /continue\s/, /pass\s/,
-      
-      // Function parameters
-      /\*\*kwargs/, /\*args/, /self\s*,\s*/, 
-      
-      // Decorators and annotations
-      /@\w+/, /:\s*\w+/, /->\s*\w+/,
-      
-      // Data structures
-      /=\s*\[.*\]/, /=\s*\{.*\}/, /=\s*\(.*\)/, /=\s*set\(/,
-      
-      // Built-in functions
-      /list\(/, /dict\(/, /tuple\(/, /set\(/, /len\(/, /range\(/, /open\(/, 
-      /input\(/, /map\(/, /filter\(/, /zip\(/, /enumerate\(/, /sorted\(/, /reversed\(/,
-      
-      // String methods
-      /\.split\(/, /\.join\(/, /\.strip\(/, /\.replace\(/, /\.format\(/, /f"/, /f'/,
-      
-      // List comprehensions
-      /\[.*for.*in.*\]/, /\{.*for.*in.*\}/, /\(.*for.*in.*\)/,
-      
-      // Method calls
-      /\.append\(/, /\.extend\(/, /\.insert\(/, /\.remove\(/, /\.pop\(/, /\.index\(/, /\.count\(/,
-      /\.keys\(/, /\.values\(/, /\.items\(/, /\.get\(/, /\.update\(/,
-      
-      // File operations
-      /open\(/, /\.read\(/, /\.write\(/, /\.close\(/, /\.readlines\(/, /\.writelines\(/,
-      
-      // Error handling
-      /raise\s+\w+/, /assert\s+/, /isinstance\(/, /type\(/, /hasattr\(/, /getattr\(/
-    ];
-
-    const hasExplicitPythonContent = pythonKeywords.some(k => queryLower.includes(k))
-      || pythonCodePatterns.some(p => p.test(query || ''));
-
-    const isClearQuestion = (query || '').includes('?') &&
-      ['how','what','why','when','where','which','can','should','would','could','is','are','does','do'].some(w => queryLower.includes(w));
-
-    const isCodeRequest = ['code','show','write','create','make','implement','build','develop','program','script','check','review','analyze','fix','debug','help'].some(w => queryLower.includes(w));
-
-    // Make the detection more inclusive
-    const isPythonQuestion = hasExplicitPythonContent || 
-      (isClearQuestion && isCodeRequest) ||
-      (queryLower.includes('code') && (queryLower.includes('working') || queryLower.includes('incorrect') || queryLower.includes('wrong'))) ||
-      (queryLower.includes('python') || queryLower.includes('programming'));
-
-    // Remove the strict check and make it more permissive
-    if (!isPythonQuestion) {
-      return res.json({
-        response: "I'm focused on Python programming. Ask me about Python concepts, debugging, code review, or improving your code!"
-      });
-    }
 
     let retrieved = [];
     if (Array.isArray(materialIds) && materialIds.length) {
@@ -219,7 +170,7 @@ RULES:
 2. Prefer information from CONTEXT if provided; if missing, say you don't know.
 3. NO complete solutions and code - only hints
 4. Use ? placeholders
-5. One short code example max
+5. Give a short code example
 6. Do not answer non-Python topics; if off-topic, say you're focused on Python.
 
 Current code:
@@ -610,7 +561,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Create user endpoint (for you to create users manually)
+// Create user endpoint 
 app.post('/api/create-user', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -720,14 +671,5 @@ app.post('/api/log/run', async (req, res) => {
   } catch (err) {
     console.error('Usage log (run) failed:', err);
     return res.status(500).json({ success: false });
-  }
-});
-
-app.get('/api/logs/:userId', async (req, res) => {
-  try {
-    const logs = await Interaction.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(200);
-    res.json({ logs });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
