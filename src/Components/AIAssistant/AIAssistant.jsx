@@ -207,6 +207,12 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       if (!response.ok) throw new Error("Network response was not ok");
       const data = await response.json();
 
+      // Handle sessionId from response
+      if (data.sessionId && !sessionIdRef.current) {
+        sessionIdRef.current = data.sessionId;
+        localStorage.setItem('haskify_session', data.sessionId);
+      }
+
       // remove loading bubble
       setMessages((prev) => prev.filter((msg) => !msg.isLoading));
 

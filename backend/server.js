@@ -94,34 +94,104 @@ app.post('/ai/ask', async (req, res) => {
       msg => queryLower === msg || (queryLower.includes(msg) && queryLower.length < 20)
     );
     if (isSimpleTest) {
-      return res.json({ response: "Hi! I focus on Haskell and functional programming. Ask me about types, recursion, monads, IO, etc." });
+      return res.json({ response: "Hi! I focus on Python and functional programming. Ask me about types, recursion, monads, IO, etc." });
     }
 
-    const haskellKeywords = [
-      'haskell','monad','functor','applicative','type','function','pattern',
-      'matching','recursion','fold','map','filter','list','maybe','either',
-      'io','pure','bind','do notation','guard','where','let','in','data',
-      'newtype','class','instance','ghc','ghci','compile','error',
-      'type signature','lambda','curry','lazy','evaluation','strict',
-      'tail recursion','higher order','function','typeclass'
+    const pythonKeywords = [
+      'python','function','class','def','lambda','decorator','async','await','for loop',
+      'while loop','if statement','list comprehension','dict comprehension',
+      'tuple','list','set','dictionary','import','module','package','object',
+      'inheritance','exception','error','try','except','finally','raise',
+      'with','context manager','generator','iterator','yield','recursion',
+      'type hint','typing','unittest','pytest','venv','pip','virtualenv',
+      'dataclass','property','staticmethod','classmethod','self','init',
+      'numpy','pandas','tensorflow','torch','flask','fastapi','django',
+      'variable','assignment','operator','comparison','boolean','true','false',
+      'none','null','string','integer','float','boolean','type','isinstance',
+      'enumerate','zip','map','filter','reduce','sorted','reversed',
+      'split','join','strip','replace','format','f-string','string formatting',
+      'file','read','write','append','close','path','os','sys','json',
+      'requests','urllib','http','api','rest','json','xml','csv',
+      'matplotlib','seaborn','plot','chart','graph','visualization',
+      'scikit-learn','sklearn','machine learning','ml','ai','artificial intelligence',
+      'dataframe','series','index','column','row','merge','join','groupby',
+      'pandas','numpy','array','matrix','vector','tensor','dimension',
+      'debugging','debug','breakpoint','pdb','logging','log','print',
+      'testing','test','assert','mock','fixture','coverage','unit test',
+      'oop','object oriented','encapsulation','polymorphism','abstraction',
+      'algorithm','data structure','stack','queue','tree','graph','hash',
+      'sorting','searching','binary search','quicksort','mergesort',
+      'complexity','big o','time complexity','space complexity','optimization',
+      'code', 'programming', 'program', 'script', 'coding', 'developer', 'development',
+      'working', 'incorrect', 'wrong', 'error', 'bug', 'fix', 'help', 'problem',
+      'issue', 'troubleshoot', 'debug', 'check', 'review', 'analyze', 'improve',
+      'optimize', 'refactor', 'clean', 'best practice', 'solution', 'approach'
     ];
-    const haskellCodePatterns = [
-      /::/,/->/,/=>/,/<-/,/do/,/where/,/let/,/in/,/data/,/newtype/,
-      /class/,/instance/,/Maybe/,/Either/,/IO/,/Just/,/Nothing/,
-      /Left/,/Right/,/putStrLn/,/return/,/map/,/filter/,/fold/,
-      /zip/,/unzip/,/head/,/tail/,/init/,/last/,/length/,/reverse/
+    const pythonCodePatterns = [
+      // Function and class definitions
+      /\bdef\s+\w+\s*\(/, /\bclass\s+\w+\s*:/, /lambda\s/, 
+      
+      // Imports
+      /import\s+\w+/, /from\s+\w+\s+import/, /import\s+\w+\s+as\s+\w+/,
+      
+      // Async patterns
+      /async\s+def/, /await\s/, 
+      
+      // Control flow
+      /try\s*:/, /except\s+\w+/, /finally\s*:/, /with\s+\w+/, 
+      /for\s+\w+\s+in\s+/, /while\s+.*:/, /if\s+.*:/, /elif\s+.*:/, /else\s*:/,
+      
+      // Common functions
+      /print\s*\(/, /return\s/, /yield\s/, /break\s/, /continue\s/, /pass\s/,
+      
+      // Function parameters
+      /\*\*kwargs/, /\*args/, /self\s*,\s*/, 
+      
+      // Decorators and annotations
+      /@\w+/, /:\s*\w+/, /->\s*\w+/,
+      
+      // Data structures
+      /=\s*\[.*\]/, /=\s*\{.*\}/, /=\s*\(.*\)/, /=\s*set\(/,
+      
+      // Built-in functions
+      /list\(/, /dict\(/, /tuple\(/, /set\(/, /len\(/, /range\(/, /open\(/, 
+      /input\(/, /map\(/, /filter\(/, /zip\(/, /enumerate\(/, /sorted\(/, /reversed\(/,
+      
+      // String methods
+      /\.split\(/, /\.join\(/, /\.strip\(/, /\.replace\(/, /\.format\(/, /f"/, /f'/,
+      
+      // List comprehensions
+      /\[.*for.*in.*\]/, /\{.*for.*in.*\}/, /\(.*for.*in.*\)/,
+      
+      // Method calls
+      /\.append\(/, /\.extend\(/, /\.insert\(/, /\.remove\(/, /\.pop\(/, /\.index\(/, /\.count\(/,
+      /\.keys\(/, /\.values\(/, /\.items\(/, /\.get\(/, /\.update\(/,
+      
+      // File operations
+      /open\(/, /\.read\(/, /\.write\(/, /\.close\(/, /\.readlines\(/, /\.writelines\(/,
+      
+      // Error handling
+      /raise\s+\w+/, /assert\s+/, /isinstance\(/, /type\(/, /hasattr\(/, /getattr\(/
     ];
-    const hasExplicitHaskellContent = haskellKeywords.some(k => queryLower.includes(k))
-      || haskellCodePatterns.some(p => p.test(query || ''));
+
+    const hasExplicitPythonContent = pythonKeywords.some(k => queryLower.includes(k))
+      || pythonCodePatterns.some(p => p.test(query || ''));
+
     const isClearQuestion = (query || '').includes('?') &&
-      ['how','what','why','when','where','which'].some(w => queryLower.includes(w));
-    const isCodeRequest = ['code','show','write','create','make','implement'].some(w => queryLower.includes(w));
+      ['how','what','why','when','where','which','can','should','would','could','is','are','does','do'].some(w => queryLower.includes(w));
 
-    const isHaskellQuestion = hasExplicitHaskellContent || (isClearQuestion && isCodeRequest);
+    const isCodeRequest = ['code','show','write','create','make','implement','build','develop','program','script','check','review','analyze','fix','debug','help'].some(w => queryLower.includes(w));
 
-    if (!isHaskellQuestion) {
+    // Make the detection more inclusive
+    const isPythonQuestion = hasExplicitPythonContent || 
+      (isClearQuestion && isCodeRequest) ||
+      (queryLower.includes('code') && (queryLower.includes('working') || queryLower.includes('incorrect') || queryLower.includes('wrong'))) ||
+      (queryLower.includes('python') || queryLower.includes('programming'));
+
+    // Remove the strict check and make it more permissive
+    if (!isPythonQuestion) {
       return res.json({
-        response: "I'm focused on Haskell and functional programming. Ask me about Haskell concepts, debugging type errors, or improving your code."
+        response: "I'm focused on Python programming. Ask me about Python concepts, debugging, code review, or improving your code!"
       });
     }
 
@@ -177,36 +247,46 @@ Keep it short. Hints only.`;
     }
 
     try {
-      // 1. Log individual interaction
-      await Interaction.create({
-        userId: userId || null,
-        sessionId: sessionId || null,
+      // Create interaction object
+      const interaction = {
         type: 'ai',
         question: query || '',
         aiResponse: responseText || '',
         code: code || '',
         output: output || '',
-        materialIds: Array.isArray(materialIds) ? materialIds : []
-      });
+        materialIds: Array.isArray(materialIds) ? materialIds : [],
+        timestamp: new Date()
+      };
 
-      // 2. Update session if sessionId exists
       if (sessionId) {
+        // Update existing session with new interaction
         await Session.findByIdAndUpdate(
           sessionId,
           { 
-            $push: { 
-              session: { 
-                question: query, 
-                response: responseText, 
-                time: new Date() 
-              } 
-            } 
+            $push: { interactions: interaction },
+            $set: { 
+              lastActivity: new Date(),
+              ...(userId && { userId: userId })
+            }
           },
           { new: true }
         );
+      } else {
+        // Create new session with first interaction
+        const newSession = new Session({
+          userId: userId || null,
+          interactions: [interaction]
+        });
+        const savedSession = await newSession.save();
+        
+        // Return the sessionId to frontend
+        return res.json({ 
+          response: responseText,
+          sessionId: savedSession._id 
+        });
       }
     } catch (logErr) {
-      console.warn('Usage log failed:', logErr?.message);
+      console.warn('Session update failed:', logErr?.message);
     }
 
     return res.json({ response: responseText });
@@ -340,7 +420,7 @@ app.post('/api/quiz', async (req, res) => {
   } catch {}
 
   let systemPrompt = `
-You are a Haskell instructor. Generate exactly one multiple-choice quiz question about Haskell.
+You are a Python instructor. Generate exactly one multiple-choice quiz question about Python.
 Prefer facts from CONTEXT if provided; do not fabricate.
 ${context}
 
@@ -448,12 +528,25 @@ if (mongoUri) {
   console.warn('No MONGODB_URI found in .env, MongoDB not connected');
 }
 
+// Update your sessionSchema to include interaction objects
 const sessionSchema = new mongoose.Schema({
+  userId: { type: String, index: true }, // Add userId to sessions
   createdAt: { type: Date, default: Date.now },
-  session: [
-    { question: String, response: String, time: { type: Date, default: Date.now } }
+  lastActivity: { type: Date, default: Date.now },
+  interactions: [
+    {
+      type: { type: String, enum: ['ai', 'run'], required: true },
+      question: String,           // for type 'ai'
+      aiResponse: String,         // for type 'ai'
+      code: String,              // captured code snapshot
+      output: String,            // code output or current output context
+      materialIds: [String],     // attached materials on that turn
+      timestamp: { type: Date, default: Date.now },
+      meta: Object               // room for future fields
+    }
   ]
 });
+
 const Session = mongoose.models.Session || mongoose.model('Session', sessionSchema);
 
 // === Add under your other schemas ===
@@ -596,30 +689,31 @@ app.post('/api/log/run', async (req, res) => {
   try {
     const { userId, sessionId, code, output } = req.body;
     
-    // Log individual interaction
-    await Interaction.create({
-      userId: userId || null,
-      sessionId: sessionId || null,
+    // Create interaction object
+    const interaction = {
       type: 'run',
       code: code || '',
-      output: output || ''
-    });
+      output: output || '',
+      timestamp: new Date()
+    };
 
-    // Update session if sessionId exists
     if (sessionId) {
+      // Update existing session with new interaction
       await Session.findByIdAndUpdate(
         sessionId,
         { 
-          $push: { 
-            session: { 
-              question: `Code Execution: ${code.substring(0, 50)}...`, 
-              response: output, 
-              time: new Date() 
-            } 
-          } 
+          $push: { interactions: interaction },
+          $set: { lastActivity: new Date() }
         },
         { new: true }
       );
+    } else {
+      // Create new session with first interaction
+      const newSession = new Session({
+        userId: userId || null,
+        interactions: [interaction]
+      });
+      await newSession.save();
     }
 
     return res.json({ success: true });
