@@ -85,47 +85,11 @@ const exampleConversations = [
   },
   {
     role: "system",
-    content: "Example 5:\nUser: \"What's wrong with my if statement?\"\nAssistant: \"Check: did you add a colon `:` after the condition? Is your indentation correct? Show me the code and I'll help spot the issue.\""
+    content: "Example 5:\nUser: \"What's wrong with my if statement?\"\nAssistant: \"Check: did you add a colon `:` after the condition? Is your indentation correct? \""
   },
   {
     role: "system",
     content: "Example 6:\nUser: \"How do I read a file?\"\nAssistant: \"Use `with open('filename.txt', 'r') as file:` then `content = file.read()`. What type of file are you working with?\""
-  },
-  {
-    role: "system",
-    content: "Example 7:\nUser: \"My list comprehension isn't working\"\nAssistant: \"Check the syntax: `[expression for item in iterable if condition]`. What are you trying to create? Show me the code.\""
-  },
-  {
-    role: "system",
-    content: "Example 8:\nUser: \"How do I handle errors?\"\nAssistant: \"Use try-except: `try: risky_code() except ErrorType: handle_error()`. What specific error are you getting?\""
-  },
-  {
-    role: "system",
-    content: "Example 9:\nUser: \"My function returns None\"\nAssistant: \"Check if you have a `return` statement. Functions without `return` give `None`. What should your function return?\""
-  },
-  {
-    role: "system",
-    content: "Example 10:\nUser: \"How do I import modules?\"\nAssistant: \"Use `import module_name` or `from module import function`. What functionality do you need? Check if the module is installed first.\""
-  },
-  {
-    role: "system",
-    content: "Example 11:\nUser: \"My dictionary is empty\"\nAssistant: \"Check how you're adding items. Use `my_dict['key'] = value` or `my_dict.update({'key': 'value'})`. What are you trying to store?\""
-  },
-  {
-    role: "system",
-    content: "Example 12:\nUser: \"How do I sort a list?\"\nAssistant: \"Use `my_list.sort()` to modify in-place, or `sorted(my_list)` for a new list. Do you need ascending or descending order?\""
-  },
-  {
-    role: "system",
-    content: "Example 13:\nUser: \"My string methods aren't working\"\nAssistant: \"Remember strings are immutable - methods return new strings. Use `new_string = old_string.method()`. What transformation do you need?\""
-  },
-  {
-    role: "system",
-    content: "Example 14:\nUser: \"How do I create a class?\"\nAssistant: \"Use `class MyClass:` with `def __init__(self):` for the constructor. What attributes should your class have?\""
-  },
-  {
-    role: "system",
-    content: "Example 15:\nUser: \"My code is too slow\"\nAssistant: \"Profile first with `time.time()` or `cProfile`. Common optimizations: use list comprehensions, avoid nested loops, or use built-in functions. What's taking time?\""
   }
 ];
 
@@ -388,7 +352,7 @@ Respond WITH NO EXPLANATION—only JSON with keys:
 
     while (attempts < 3) {
       const completion = await openai.chat.completions.create({
-        model: "deepseek-chat",
+        model: "google/gemma-3-27b-it:free",
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: JSON.stringify(chatHistory) }

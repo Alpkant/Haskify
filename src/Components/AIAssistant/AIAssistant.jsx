@@ -496,7 +496,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         {/* Hidden multi-file input */}
         <input
           type="file"
-          accept="application/pdf"
+          accept="application/pdf,application/python,.py"
           multiple
           ref={fileInputRef}
           style={{ display: "none" }}
@@ -509,7 +509,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           type="button"
           onClick={pickFiles}
           disabled={isLoading || isTyping}
-          title="Attach PDFs"
+          title="Attach PDFs or Python code"
         >
           +
         </button>

@@ -16,6 +16,12 @@ export default function UploadButton({ onPdfUpload }) {
         const pdfUrl = URL.createObjectURL(file);
         onPdfUpload(pdfUrl, file.name);
       }
+
+      if (file.type === 'application/python' || file.name.endsWith('.py')) {
+        const pythonUrl = URL.createObjectURL(file);
+        onPythonUpload(pythonUrl, file.name);
+      }
+
     }
   };
 
@@ -25,13 +31,13 @@ export default function UploadButton({ onPdfUpload }) {
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
-        accept=".pdf,application/pdf"
+        accept=".pdf,application/pdf,.py,application/python"
         style={{ display: 'none' }}
       />
       <button className="upload-button" onClick={handleUploadClick}>
-        Upload PDF
+        Upload PDF or Python code
       </button>
-      <p className="note">*Only .pdf files allowed</p>
+      <p className="note">*Only .pdf and .py files allowed</p>
     </div>
   );
 }

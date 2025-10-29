@@ -30,7 +30,7 @@ export default function ContactModal({ isOpen, onClose }) {
           }}
         >
           <label>
-            Name:
+            Name/User Id:
             <input type="text" required />
           </label>
           <label>
