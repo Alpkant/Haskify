@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import './UploadButton.css';
 
-export default function UploadButton({ onPdfUpload }) {
+export default function UploadButton({ onPdfUpload, onPythonUpload }) {
   const fileInputRef = useRef(null);
 
   const handleUploadClick = () => {

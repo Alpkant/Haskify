@@ -61,9 +61,15 @@ function topKChunks(chunks, query, k = 6) {
   return scored.sort((a,b) => b.score - a.score).slice(0, k).filter(c => c.score > 0);
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// OpenRouter client for text generation (chat completions)
+const openrouter = new OpenAI({
+  apiKey: process.env.OPENROUTER_API_KEY,
   baseURL: "https://openrouter.ai/api/v1",
+});
+
+// OpenAI client for embeddings (must use real OpenAI API)
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY, // Your actual OpenAI API key
 });
 
 const exampleConversations = [
@@ -95,7 +101,7 @@ const exampleConversations = [
 
 app.post('/ai/ask', async (req, res) => {
   try {
-    const { query, code, output, materialIds, userId, sessionId } = req.body;
+    const { query, code, output, sessionId, userId } = req.body;
 
     const simpleTestMessages = [
       'test','hello','hi','hey','cool','nice',
@@ -111,20 +117,15 @@ app.post('/ai/ask', async (req, res) => {
 
 
     let retrieved = [];
-    if (Array.isArray(materialIds) && materialIds.length) {
-      const allChunks = [];
-      for (const id of materialIds) {
-        const mat = materials.get(id);
-        if (mat?.chunks) {
-          allChunks.push(...mat.chunks.map(c => ({ ...c, _from: id, _title: mat.title })));
-        }
-      }
-      retrieved = topKChunks(allChunks, query, 6);
+    if (sessionId) {
+      retrieved = await retrieveRelevantChunks(query, sessionId, 6);
     }
 
     const contextBlock = retrieved.length
-      ? `\n\nCONTEXT (from uploaded materials):\n` +
-        retrieved.map(r => `[${(r._title || r._from).slice(0,40)} #${r.idx}] ${r.text}`).join('\n---\n')
+      ? `\n\nCONTEXT (from materials):\n` +
+        retrieved.map(r => 
+          `[${r.source === 'system' ? '📚 Course Material' : '📄 Your Upload'}: ${r.title.slice(0,40)} #${r.idx}]\n${r.text}`
+        ).join('\n---\n')
       : '';
 
     const systemMessage = `You are a concise Python tutor. MAXIMUM 50 words per response.
@@ -132,7 +133,7 @@ app.post('/ai/ask', async (req, res) => {
 RULES:
 1. ONLY Python and programming questions
 2. Prefer information from CONTEXT if provided; if missing, say you don't know.
-3. NO complete solutions and code - only hints
+3. NO complete solutions - only hints
 4. Use ? placeholders
 5. Give a short code example
 6. Do not answer non-Python topics; if off-topic, say you're focused on Python.
@@ -145,7 +146,7 @@ ${output ? `Output: \`\`\`${output}\`\`\`` : ''}${contextBlock}
 
 Keep it short. Hints only.`;
 
-    const stream = await openai.chat.completions.create({
+    const stream = await openrouter.chat.completions.create({
       model: "google/gemma-3-27b-it:free",
       messages: [
         { role: "system", content: systemMessage },
@@ -169,7 +170,7 @@ Keep it short. Hints only.`;
         aiResponse: responseText || '',
         code: code || '',
         output: output || '',
-        materialIds: Array.isArray(materialIds) ? materialIds : [],
+        materialIds: Array.isArray(retrieved) ? retrieved.map(r => r.source === 'system' ? r.title : r.title) : [],
         timestamp: new Date()
       };
 
@@ -351,7 +352,7 @@ Respond WITH NO EXPLANATION—only JSON with keys:
     let quiz;
 
     while (attempts < 3) {
-      const completion = await openai.chat.completions.create({
+      const completion = await openrouter.chat.completions.create({
         model: "google/gemma-3-27b-it:free",
         messages: [
           { role: 'system', content: systemPrompt },
@@ -401,22 +402,59 @@ Respond WITH NO EXPLANATION—only JSON with keys:
 app.post('/api/upload-material', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    if (req.file.mimetype !== 'application/pdf') {
-      return res.status(400).json({ error: 'Only PDF is supported for now' });
+    
+    const { sessionId } = req.body; // Must provide sessionId
+    if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
+    
+    let chunks;
+    let fileType;
+    
+    // Process based on file type
+    if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
+      const parsed = await pdfParse(req.file.buffer);
+      const text = (parsed.text || '').trim();
+      if (!text) return res.status(400).json({ error: 'PDF has no extractable text' });
+      chunks = chunkText(text, 500, 50); // smaller chunks for better retrieval
+      fileType = 'pdf';
+    } else if (req.file.originalname.endsWith('.py')) {
+      chunks = extractPythonContent(req.file.buffer);
+      fileType = 'python';
+    } else {
+      return res.status(400).json({ error: 'Only PDF and Python files supported' });
     }
-
-    const parsed = await pdfParse(req.file.buffer);
-    const text = (parsed.text || '').trim();
-    if (!text) return res.status(400).json({ error: 'PDF has no extractable text' });
-
-    const id = uuid();
-    const chunks = chunkText(text);
-    materials.set(id, { title: req.file.originalname, chunks });
-
-    return res.json({ materialId: id, title: req.file.originalname, chunks: chunks.length });
+    
+    if (!chunks.length) {
+      return res.status(400).json({ error: 'No content extracted' });
+    }
+    
+    // Generate embeddings for all chunks
+    console.log(`Generating embeddings for ${chunks.length} chunks...`);
+    const embeddedChunks = await generateEmbeddings(chunks);
+    
+    // Save to MongoDB with expiration (e.g., 24 hours)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const sessionMaterial = new SessionMaterial({
+      sessionId,
+      userId: req.body.userId || null,
+      title: req.file.originalname,
+      fileType,
+      chunks: embeddedChunks,
+      expiresAt
+    });
+    
+    await sessionMaterial.save();
+    
+    // Return materialId (use MongoDB _id as string)
+    const materialId = sessionMaterial._id.toString();
+    
+    return res.json({ 
+      materialId, 
+      title: req.file.originalname, 
+      chunks: embeddedChunks.length 
+    });
   } catch (e) {
     console.error('Upload error:', e);
-    return res.status(500).json({ error: 'Failed to process PDF' });
+    return res.status(500).json({ error: 'Failed to process file' });
   }
 });
 
@@ -464,7 +502,6 @@ const sessionSchema = new mongoose.Schema({
 
 const Session = mongoose.models.Session || mongoose.model('Session', sessionSchema);
 
-// === Add under your other schemas ===
 const interactionSchema = new mongoose.Schema({
   userId: { type: String, index: true },
   sessionId: { type: String, index: true, sparse: true },
@@ -487,6 +524,67 @@ const userSchema = new mongoose.Schema({
   lastLogin: { type: Date, default: Date.now }
 });
 const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+// System Materials (Persistent) - admin-uploaded, hidden from users
+const systemMaterialSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: String,
+  fileType: { type: String, enum: ['pdf', 'python', 'text'], required: true },
+  chunks: [{
+    idx: Number,
+    text: String,
+    embedding: [Number], // 1536-dimensional vector for OpenAI embeddings
+    metadata: {
+      page: Number,      // for PDFs
+      lineStart: Number, // for code files
+      lineEnd: Number
+    }
+  }],
+  tags: [String], // e.g., ['loops', 'functions', 'data-structures']
+  isActive: { type: Boolean, default: true }, // toggle visibility
+  createdAt: { type: Date, default: Date.now },
+  createdBy: String // admin userId
+});
+systemMaterialSchema.index({ 'chunks.embedding': '2dsphere' }); // for vector search
+
+// Session Materials (Temporary) - user-uploaded
+const sessionMaterialSchema = new mongoose.Schema({
+  sessionId: { type: String, required: true, index: true },
+  userId: String,
+  title: { type: String, required: true },
+  fileType: { type: String, enum: ['pdf', 'python'], required: true },
+  chunks: [{
+    idx: Number,
+    text: String,
+    embedding: [Number],
+    metadata: Object
+  }],
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: { type: Date, required: true } // auto-delete after X hours
+});
+sessionMaterialSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index
+sessionMaterialSchema.index({ sessionId: 1, createdAt: -1 });
+
+// Material reference tracking (for UI)
+const materialReferenceSchema = new mongoose.Schema({
+  sessionId: { type: String, required: true },
+  materialId: String, // UUID sent to frontend
+  type: { type: String, enum: ['system', 'session'], required: true },
+  dbId: { type: mongoose.Schema.Types.ObjectId }, // actual MongoDB _id
+  title: String,
+  attachedAt: { type: Date, default: Date.now }
+});
+
+// Create Mongoose Models from Schemas
+const SystemMaterial = mongoose.models.SystemMaterial || 
+  mongoose.model('SystemMaterial', systemMaterialSchema);
+
+const SessionMaterial = mongoose.models.SessionMaterial || 
+  mongoose.model('SessionMaterial', sessionMaterialSchema);
+
+const MaterialReference = mongoose.models.MaterialReference || 
+  mongoose.model('MaterialReference', materialReferenceSchema);
+
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
@@ -635,5 +733,244 @@ app.post('/api/log/run', async (req, res) => {
   } catch (err) {
     console.error('Usage log (run) failed:', err);
     return res.status(500).json({ success: false });
+  }
+});
+
+// Generate embeddings using OpenAI
+async function generateEmbedding(text) {
+  try {
+    const response = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text.substring(0, 8000), // limit to 8k chars
+    });
+    return response.data[0].embedding;
+  } catch (error) {
+    console.error('Embedding generation failed:', error);
+    throw error;
+  }
+}
+
+// Generate embeddings for all chunks
+async function generateEmbeddings(chunks) {
+  const embeddedChunks = [];
+  for (const chunk of chunks) {
+    const embedding = await generateEmbedding(chunk.text);
+    embeddedChunks.push({
+      ...chunk,
+      embedding
+    });
+    // Small delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return embeddedChunks;
+}
+
+// Cosine similarity
+function cosineSimilarity(vec1, vec2) {
+  let dot = 0, mag1 = 0, mag2 = 0;
+  for (let i = 0; i < vec1.length; i++) {
+    dot += vec1[i] * vec2[i];
+    mag1 += vec1[i] * vec1[i];
+    mag2 += vec2[i] * vec2[i];
+  }
+  return dot / (Math.sqrt(mag1) * Math.sqrt(mag2));
+}
+
+// Retrieve relevant chunks using vector similarity
+async function retrieveRelevantChunks(query, sessionId, k = 6) {
+  try {
+    // Generate query embedding
+    const queryEmbedding = await generateEmbedding(query);
+    
+    // Get all relevant materials
+    const [systemMaterials, sessionMaterials] = await Promise.all([
+      SystemMaterial.find({ isActive: true }),
+      SessionMaterial.find({ sessionId })
+    ]);
+    
+    // Collect all chunks with similarity scores
+    const scoredChunks = [];
+    
+    // Process system materials
+    for (const mat of systemMaterials) {
+      for (const chunk of mat.chunks) {
+        const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
+        scoredChunks.push({
+          text: chunk.text,
+          idx: chunk.idx,
+          similarity,
+          source: 'system',
+          title: mat.title,
+          metadata: chunk.metadata
+        });
+      }
+    }
+    
+    // Process session materials
+    for (const mat of sessionMaterials) {
+      for (const chunk of mat.chunks) {
+        const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
+        scoredChunks.push({
+          text: chunk.text,
+          idx: chunk.idx,
+          similarity,
+          source: 'session',
+          title: mat.title,
+          metadata: chunk.metadata
+        });
+      }
+    }
+    
+    // Sort by similarity and return top k
+    return scoredChunks
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, k)
+      .filter(c => c.similarity > 0.7); // similarity threshold
+  } catch (error) {
+    console.error('Retrieval error:', error);
+    return [];
+  }
+}
+
+// Extract text from Python files
+function extractPythonContent(buffer) {
+  const code = buffer.toString('utf-8');
+  const lines = code.split('\n');
+  
+  // Chunk by logical sections (functions, classes)
+  const chunks = [];
+  let currentChunk = [];
+  let chunkStart = 1;
+  
+  lines.forEach((line, idx) => {
+    currentChunk.push(line);
+    
+    // Chunk boundaries: function/class definitions or every ~50 lines
+    const isDefinition = /^(def |class |async def )/.test(line);
+    const shouldBreak = currentChunk.length >= 50 || 
+                        (isDefinition && currentChunk.length > 10 && idx > 0);
+    
+    if (shouldBreak) {
+      const text = currentChunk.join('\n').trim();
+      if (text) {
+        chunks.push({
+          idx: chunks.length + 1,
+          text,
+          metadata: { lineStart: chunkStart, lineEnd: idx + 1 }
+        });
+      }
+      currentChunk = [line];
+      chunkStart = idx + 1;
+    }
+  });
+  
+  // Add remaining chunk
+  if (currentChunk.length > 0) {
+    const text = currentChunk.join('\n').trim();
+    if (text) {
+      chunks.push({
+        idx: chunks.length + 1,
+        text,
+        metadata: { lineStart: chunkStart, lineEnd: lines.length }
+      });
+    }
+  }
+  
+  return chunks;
+}
+
+// Clean up expired session materials (run periodically)
+async function cleanupExpiredMaterials() {
+  try {
+    const result = await SessionMaterial.deleteMany({
+      expiresAt: { $lt: new Date() }
+    });
+    console.log(`Cleaned up ${result.deletedCount} expired materials`);
+  } catch (error) {
+    console.error('Cleanup error:', error);
+  }
+}
+
+// Run cleanup every hour
+setInterval(cleanupExpiredMaterials, 60 * 60 * 1000);
+
+// Manual cleanup endpoint (optional)
+app.post('/api/cleanup-session/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const result = await SessionMaterial.deleteMany({ sessionId });
+    return res.json({ success: true, deleted: result.deletedCount });
+  } catch (error) {
+    return res.status(500).json({ error: 'Cleanup failed' });
+  }
+});
+
+// Admin-only endpoint to upload system materials
+app.post('/api/admin/upload-system-material', upload.single('file'), async (req, res) => {
+  try {
+    // Add authentication check here
+    const { adminKey, title, description, tags } = req.body;
+    
+    // Simple admin key check (replace with proper auth)
+    if (adminKey !== process.env.ADMIN_KEY) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    
+    let chunks, fileType;
+    
+    if (req.file.mimetype === 'application/pdf' || req.file.originalname.endsWith('.pdf')) {
+      const parsed = await pdfParse(req.file.buffer);
+      const text = (parsed.text || '').trim();
+      if (!text) return res.status(400).json({ error: 'PDF has no extractable text' });
+      chunks = chunkText(text, 500, 50);
+      fileType = 'pdf';
+    } else if (req.file.originalname.endsWith('.py')) {
+      chunks = extractPythonContent(req.file.buffer);
+      fileType = 'python';
+    } else {
+      return res.status(400).json({ error: 'Only PDF and Python files supported' });
+    }
+    
+    console.log(`Generating embeddings for ${chunks.length} chunks...`);
+    const embeddedChunks = await generateEmbeddings(chunks);
+    
+    const systemMaterial = new SystemMaterial({
+      title: title || req.file.originalname,
+      description: description || '',
+      fileType,
+      chunks: embeddedChunks,
+      tags: tags ? JSON.parse(tags) : [],
+      createdBy: 'admin'
+    });
+    
+    await systemMaterial.save();
+    
+    return res.json({ 
+      success: true,
+      materialId: systemMaterial._id.toString(),
+      title: systemMaterial.title,
+      chunks: embeddedChunks.length 
+    });
+  } catch (e) {
+    console.error('System material upload error:', e);
+    return res.status(500).json({ error: 'Failed to process file' });
+  }
+});
+
+// List system materials (admin only)
+app.get('/api/admin/system-materials', async (req, res) => {
+  try {
+    const { adminKey } = req.query;
+    if (adminKey !== process.env.ADMIN_KEY) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    
+    const materials = await SystemMaterial.find({}, { chunks: 0 }); // exclude chunks from list
+    return res.json({ materials });
+  } catch (error) {
+    console.error('List error:', error);
+    return res.status(500).json({ error: 'Failed to list materials' });
   }
 });

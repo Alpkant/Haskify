@@ -127,18 +127,30 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     if (!files.length) return;
 
     const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+    
+    // Get userId from localStorage
+    const savedUser = localStorage.getItem('haskify_user');
+    const userId = savedUser ? JSON.parse(savedUser).userId : null;
 
     for (const file of files) {
       try {
         const form = new FormData();
         form.append("file", file);
+        form.append("sessionId", sessionIdRef.current);
+        form.append("userId", userId);
+
+        setUploadStatus(`Uploading ${file.name}...`);
 
         const res = await fetch(`${API_BASE}/api/upload-material`, {
           method: "POST",
           body: form,
         });
 
-        if (!res.ok) throw new Error("upload failed");
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "upload failed");
+        }
+        
         const data = await res.json();
 
         if (data.materialId) {
@@ -146,15 +158,16 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
             ...prev,
             { id: data.materialId, title: data.title || file.name },
           ]);
-          setUploadStatus(`${data.title || file.name} uploaded`);
-          setTimeout(() => setUploadStatus(null), 2500);
+          setUploadStatus(`✓ ${data.title || file.name} uploaded (${data.chunks} chunks)`);
+          setTimeout(() => setUploadStatus(null), 3000);
         } else {
-          setUploadStatus(`Couldn’t attach ${file.name}`);
+          setUploadStatus(`✗ Couldn't attach ${file.name}`);
           setTimeout(() => setUploadStatus(null), 2500);
         }
-      } catch {
-        setUploadStatus(`Couldn’t attach ${file.name}`);
-        setTimeout(() => setUploadStatus(null), 2500);
+      } catch (error) {
+        console.error('Upload error:', error);
+        setUploadStatus(`✗ ${error.message || `Couldn't attach ${file.name}`}`);
+        setTimeout(() => setUploadStatus(null), 3000);
       }
     }
 
