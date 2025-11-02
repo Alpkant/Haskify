@@ -119,6 +119,9 @@ app.post('/ai/ask', async (req, res) => {
     let retrieved = [];
     if (sessionId) {
       retrieved = await retrieveRelevantChunks(query, sessionId, 6);
+      console.log(`Retrieved ${retrieved.length} chunks for AI context`);
+    } else {
+      console.warn('⚠️  No sessionId provided, RAG disabled');
     }
 
     const contextBlock = retrieved.length
@@ -127,6 +130,10 @@ app.post('/ai/ask', async (req, res) => {
           `[${r.source === 'system' ? '📚 Course Material' : '📄 Your Upload'}: ${r.title.slice(0,40)} #${r.idx}]\n${r.text}`
         ).join('\n---\n')
       : '';
+
+    if (contextBlock) {
+      console.log(`✓ Adding ${retrieved.length} chunks to AI context`);
+    }
 
     const systemMessage = `You are a concise Python tutor. MAXIMUM 50 words per response.
 
@@ -138,6 +145,9 @@ RULES:
 5. Give a short code example
 6. Do not answer non-Python topics; if off-topic, say you're focused on Python.
 
+${retrieved.length > 0 
+  ? `\n YOU HAVE ACCESS TO: ${retrieved.map(r => r.title).join(', ')}\nRefer to this uploaded code or material when answering.\n` 
+  : ''}
 Current code:
 \`\`\`python
 ${code || ''}
@@ -779,8 +789,12 @@ function cosineSimilarity(vec1, vec2) {
 // Retrieve relevant chunks using vector similarity
 async function retrieveRelevantChunks(query, sessionId, k = 6) {
   try {
+    console.log(`\n🔍 RAG Retrieval for query: "${query.substring(0, 50)}..."`);
+    console.log(`   SessionId: ${sessionId}`);
+    
     // Generate query embedding
     const queryEmbedding = await generateEmbedding(query);
+    console.log(`   ✓ Query embedding generated (${queryEmbedding.length}D)`);
     
     // Get all relevant materials
     const [systemMaterials, sessionMaterials] = await Promise.all([
@@ -788,12 +802,19 @@ async function retrieveRelevantChunks(query, sessionId, k = 6) {
       SessionMaterial.find({ sessionId })
     ]);
     
+    console.log(`   Found ${systemMaterials.length} system materials, ${sessionMaterials.length} session materials`);
+    
     // Collect all chunks with similarity scores
     const scoredChunks = [];
     
     // Process system materials
     for (const mat of systemMaterials) {
-      for (const chunk of mat.chunks) {
+      console.log(`   Processing system material: ${mat.title} (${mat.chunks?.length || 0} chunks)`);
+      for (const chunk of mat.chunks || []) {
+        if (!chunk.embedding || chunk.embedding.length === 0) {
+          console.warn(`   ⚠️  Chunk ${chunk.idx} missing embedding!`);
+          continue;
+        }
         const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
         scoredChunks.push({
           text: chunk.text,
@@ -808,7 +829,12 @@ async function retrieveRelevantChunks(query, sessionId, k = 6) {
     
     // Process session materials
     for (const mat of sessionMaterials) {
-      for (const chunk of mat.chunks) {
+      console.log(`   Processing session material: ${mat.title} (${mat.chunks?.length || 0} chunks)`);
+      for (const chunk of mat.chunks || []) {
+        if (!chunk.embedding || chunk.embedding.length === 0) {
+          console.warn(`   ⚠️  Chunk ${chunk.idx} missing embedding!`);
+          continue;
+        }
         const similarity = cosineSimilarity(queryEmbedding, chunk.embedding);
         scoredChunks.push({
           text: chunk.text,
@@ -821,13 +847,25 @@ async function retrieveRelevantChunks(query, sessionId, k = 6) {
       }
     }
     
-    // Sort by similarity and return top k
-    return scoredChunks
+    console.log(`   Total chunks scored: ${scoredChunks.length}`);
+    
+    if (scoredChunks.length > 0) {
+      // Show top 3 similarities
+      const sorted = scoredChunks.sort((a, b) => b.similarity - a.similarity);
+      console.log(`   Top similarities: ${sorted.slice(0, 3).map(c => c.similarity.toFixed(3)).join(', ')}`);
+    }
+    
+
+    const results = scoredChunks
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, k)
-      .filter(c => c.similarity > 0.7); // similarity threshold
+      .filter(c => c.similarity > 0.4); 
+    
+    console.log(`   ✓ Returning ${results.length} relevant chunks (threshold: 0.5)`);
+    
+    return results;
   } catch (error) {
-    console.error('Retrieval error:', error);
+    console.error('❌ Retrieval error:', error);
     return [];
   }
 }

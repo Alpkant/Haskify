@@ -59,6 +59,15 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     return () => clearInterval(typingIntervalRef.current);
   }, []);
 
+  // Load sessionId from localStorage on mount
+  useEffect(() => {
+    const savedSessionId = localStorage.getItem('haskify_session');
+    if (savedSessionId) {
+      sessionIdRef.current = savedSessionId;
+      console.log('Loaded sessionId from localStorage:', savedSessionId);
+    }
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, uploadStatus]);

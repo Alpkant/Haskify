@@ -11,14 +11,18 @@ export default function HowItWorksModal({ isOpen, onClose }) {
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <h2>How does it work?</h2>
         <p>
-          Haskify connects a React frontend with a Node.js/Express backend.
-          <br/><br/>
-          <strong>Code Execution:</strong> Your Python code from the editor is sent to the backend. The server compiles and runs it using GHC, capturing the output or any compilation/runtime errors. This result is then sent back to the frontend and displayed.
-          <br/><br/>
-          <strong>AI Assistant:</strong> The AI assistant sends your queries, along with your current code and output, to the backend. The backend uses a language model (like DeepSeek) to generate helpful responses based on the context provided.
-          <br/><br/>
-          <strong>Input Handling:</strong> User input entered in the dedicated input field is sent to the backend along with the code, allowing interactive Haskell programs to receive input.
-          <br/><br/>
+          Haskify helps you learn and experiment with Python code more easily.
+
+          <br /><br />
+          <strong>What Haskify Does:</strong>
+          <br />
+          <strong>1. Run Python Code:</strong> You can write and edit Python code. When you click Run, your code is executedand the output or errors are shown instantly.
+          <br /><br />
+          <strong>2. Get AI Help:</strong> You can ask the built-in AI Assistant questions about Python, your code, or general programming. The assistant provides short, helpful hints based on your code, uploaded materials, and follow-up questions.
+          <br /><br />
+          <strong>3. Upload Materials:</strong> You can attach your own Python files or PDFs as extra reference. The AI will use these materials to answer your questions more specifically.
+          <br /><br />
+          
         </p>
         <button className="close-button" onClick={onClose}>Close</button>
       </div>
