@@ -26,7 +26,7 @@ app.use(express.json());
 
 const executionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 200,
   message: { output: "Too many requests, please try again later" }
 });
 
@@ -34,10 +34,10 @@ const materials = new Map();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, 
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB (increase from 10MB)
 });
 
-function chunkText(text, size = 900, overlap = 120) {
+function chunkText(text, size = 256, overlap = 64) {
   const words = (text || '').split(/\s+/).filter(Boolean);
   const out = [];
   for (let i = 0; i < words.length; i += (size - overlap)) {
@@ -144,7 +144,7 @@ RULES:
 4. Use ? placeholders
 5. Give a short code example
 6. Do not answer non-Python topics; if off-topic, say you're focused on Python.
-
+7. Do not put Markdown bold or italic. 
 ${retrieved.length > 0 
   ? `\n YOU HAVE ACCESS TO: ${retrieved.map(r => r.title).join(', ')}\nRefer to this uploaded code or material when answering.\n` 
   : ''}
@@ -829,7 +829,7 @@ async function retrieveRelevantChunks(query, sessionId, k = 6) {
     
     // Process session materials
     for (const mat of sessionMaterials) {
-      console.log(`   Processing session material: ${mat.title} (${mat.chunks?.length || 0} chunks)`);
+      console.log(`   Processing session material: ${mat.title} `);
       for (const chunk of mat.chunks || []) {
         if (!chunk.embedding || chunk.embedding.length === 0) {
           console.warn(`   ⚠️  Chunk ${chunk.idx} missing embedding!`);
@@ -861,11 +861,11 @@ async function retrieveRelevantChunks(query, sessionId, k = 6) {
       .slice(0, k)
       .filter(c => c.similarity > 0.4); 
     
-    console.log(`   ✓ Returning ${results.length} relevant chunks (threshold: 0.5)`);
+    console.log(`Returning ${results.length} relevant chunks (threshold: 0.4)`);
     
     return results;
   } catch (error) {
-    console.error('❌ Retrieval error:', error);
+    console.error('Retrieval error:', error);
     return [];
   }
 }
@@ -992,8 +992,16 @@ app.post('/api/admin/upload-system-material', upload.single('file'), async (req,
       chunks: embeddedChunks.length 
     });
   } catch (e) {
-    console.error('System material upload error:', e);
-    return res.status(500).json({ error: 'Failed to process file' });
+    console.error('❌ System material upload error:', e);
+    
+    // Better error message for file size
+    if (e.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ 
+        error: `File too large. Maximum size is ${50}MB` 
+      });
+    }
+    
+    return res.status(500).json({ error: 'Failed to process file: ' + e.message });
   }
 });
 
