@@ -20,6 +20,16 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   const sessionIdRef = useRef(null);
   const fileInputRef = useRef(null); 
 
+  // Helper to sync sessionId from sessionStorage before requests
+  const syncSessionId = () => {
+    const savedSessionId = sessionStorage.getItem('haskify_session');
+    if (savedSessionId && savedSessionId !== sessionIdRef.current) {
+      sessionIdRef.current = savedSessionId;
+      console.log('🔄 [AIAssistant] Synced session from storage:', savedSessionId.substring(0, 8) + '...');
+    }
+    return sessionIdRef.current;
+  };
+
   useEffect(() => {
     const initialMessage =
       "Hi! How can I help you with your Python project today?";
@@ -59,9 +69,9 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     return () => clearInterval(typingIntervalRef.current);
   }, []);
 
-  // Load or keep sessionId from localStorage on mount
+  // Load or keep sessionId from sessionStorage on mount
   useEffect(() => {
-    const savedSessionId = localStorage.getItem('haskify_session');
+    const savedSessionId = sessionStorage.getItem('haskify_session');
     if (savedSessionId) {
       sessionIdRef.current = savedSessionId;
       console.log('✓ [AIAssistant] Loaded existing session:', savedSessionId.substring(0, 8) + '...');
@@ -105,7 +115,10 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const res = await fetch(`${API_BASE}/api/quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatHistory: sessionHistoryRef.current, sessionId: sessionIdRef.current  }),
+        body: JSON.stringify({ 
+          chatHistory: sessionHistoryRef.current, 
+          sessionId: syncSessionId()
+        }),
       });
       const quiz = await res.json();
 
@@ -148,7 +161,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       try {
         const form = new FormData();
         form.append("file", file);
-        form.append("sessionId", sessionIdRef.current);
+        form.append("sessionId", syncSessionId());
         form.append("userId", userId);
 
         setUploadStatus(`Uploading ${file.name}...`);
@@ -225,7 +238,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           output: sharedState.output,
           materialIds: materialIds.map((m) => m.id),
           userId, // Add this back
-          sessionId: sessionIdRef.current
+          sessionId: syncSessionId()
         }),
       });
 
@@ -233,9 +246,9 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const data = await response.json();
 
       // Handle sessionId from response
-      if (data.sessionId && !sessionIdRef.current) {
+      if (data.sessionId && !syncSessionId()) {
         sessionIdRef.current = data.sessionId;
-        localStorage.setItem('haskify_session', data.sessionId);
+        sessionStorage.setItem('haskify_session', data.sessionId);
         console.log('✓ [AIAssistant] Created and saved new session:', data.sessionId.substring(0, 8) + '...');
       }
 
@@ -279,7 +292,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           if (last && last.response === null) last.response = responseText;
           const payload = { session: sessionHistoryRef.current };
           // save or patch session
-          if (!sessionIdRef.current) {
+          if (!syncSessionId()) {
             fetch(`${API_BASE}/api/save-session`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -289,12 +302,12 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
               .then((data) => {
                 if (data.success && data.id) {
                   sessionIdRef.current = data.id;
-                  localStorage.setItem('haskify_session', data.id);
+                  sessionStorage.setItem('haskify_session', data.id);
                   console.log('✓ [AIAssistant] Saved session:', data.id.substring(0, 8) + '...');
                 }
               });
           } else {
-            fetch(`${API_BASE}/api/save-session/${sessionIdRef.current}`, {
+            fetch(`${API_BASE}/api/save-session/${syncSessionId()}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
@@ -436,7 +449,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                               userId: userId,
-                              sessionId: sessionIdRef.current,
+                              sessionId: syncSessionId(),
                               quizQuestion: question,
                               quizChoices: choices,
                               correctAnswer: correctIndex,

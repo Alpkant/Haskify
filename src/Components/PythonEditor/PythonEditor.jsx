@@ -141,7 +141,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
         const userId = savedUser ? JSON.parse(savedUser).userId : null;
         
         // Get sessionId from localStorage (set by AI Assistant)
-        const savedSessionId = localStorage.getItem('haskify_session');
+        const savedSessionId = sessionStorage.getItem('haskify_session');
         
         console.log('📝 Logging code execution...');
         console.log('  API:', API_BASE);
@@ -171,7 +171,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
         console.log('  [PythonEditor] Log result:', logResult);
 
         if (logResult.sessionId && !savedSessionId) {
-          localStorage.setItem('haskify_session', logResult.sessionId);
+          sessionStorage.setItem('haskify_session', logResult.sessionId);
           console.log('✓ [PythonEditor] Created and saved new session:', logResult.sessionId.substring(0, 8) + '...');
         } else if (savedSessionId) {
           console.log('✓ [PythonEditor] Code logged to existing session:', savedSessionId.substring(0, 8) + '...');
