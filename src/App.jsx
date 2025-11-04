@@ -10,6 +10,7 @@ import AIAssistant from './Components/AIAssistant/AIAssistant';
 import ContactModal from './Components/ContactModal/ContactModal';
 import HowItWorksModal from './Components/HowItWorksModal/HowItWorksModal';
 import Login from './Components/Login/Login';
+import { PythonProvider } from 'react-py';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -69,6 +70,18 @@ print("Welcome to Haskify! \\n Start coding now!")`,
   }, []);
 
   useEffect(() => {
+    navigator.serviceWorker
+      .register('/react-py-sw.js')
+      .then((registration) =>
+        console.log(
+          'Service Worker registration successful with scope: ',
+          registration.scope
+        )
+      )
+      .catch((err) => console.log('Service Worker registration failed: ', err))
+  }, [])
+  
+  useEffect(() => {
     if (!loading) return;
     const iv = setInterval(() => {
       setMsgIndex(i => (i + 1) % loadingMessages.length);
@@ -121,58 +134,60 @@ print("Welcome to Haskify! \\n Start coding now!")`,
 
   // Show main app if authenticated
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <div className="app-layout">
-              <Header 
-                onHowItWorksClick={() => setHowItWorksOpen(true)}
-                user={user}
-                onLogout={handleLogout}
-              />
-              <main className="main-content">
-                {showUploadButton && (
-                  <UploadButton onPdfUpload={handlePdfUpload} />
-                )}
-                <PdfViewer
-                  pdfUrl={pdfData.url}
-                  pdfName={pdfData.name}
+    <PythonProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <div className="app-layout">
+                <Header 
+                  onHowItWorksClick={() => setHowItWorksOpen(true)}
+                  user={user}
+                  onLogout={handleLogout}
                 />
+                <main className="main-content">
+                  {showUploadButton && (
+                    <UploadButton onPdfUpload={handlePdfUpload} />
+                  )}
+                  <PdfViewer
+                    pdfUrl={pdfData.url}
+                    pdfName={pdfData.name}
+                  />
 
-                <div className="code-ai-grid">
-                  <div className="grid-item">
-                    <h2 className="shared-title">Code Editor</h2>
-                    <PythonEditor
-                      sharedState={sharedState}
-                      updateSharedState={updateSharedState}
-                    />
-                  </div>
+                  <div className="code-ai-grid">
+                    <div className="grid-item">
+                      <h2 className="shared-title">Code Editor</h2>
+                      <PythonEditor
+                        sharedState={sharedState}
+                        updateSharedState={updateSharedState}
+                      />
+                    </div>
 
-                  <div className="grid-item">
-                    <h2 className="shared-title">AI Assistant</h2>
-                    <AIAssistant
-                      sharedState={sharedState}
-                      updateSharedState={updateSharedState}
-                    />
+                    <div className="grid-item">
+                      <h2 className="shared-title">AI Assistant</h2>
+                      <AIAssistant
+                        sharedState={sharedState}
+                        updateSharedState={updateSharedState}
+                      />
+                    </div>
                   </div>
-                </div>
-              </main>
-              <Footer onContactClick={() => setContactOpen(true)} />
-              <HowItWorksModal
-                isOpen={isHowItWorksOpen}
-                onClose={() => setHowItWorksOpen(false)}
-              />
-              <ContactModal
-                isOpen={isContactOpen}
-                onClose={() => setContactOpen(false)}
-              />
-            </div>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+                </main>
+                <Footer onContactClick={() => setContactOpen(true)} />
+                <HowItWorksModal
+                  isOpen={isHowItWorksOpen}
+                  onClose={() => setHowItWorksOpen(false)}
+                />
+                <ContactModal
+                  isOpen={isContactOpen}
+                  onClose={() => setContactOpen(false)}
+                />
+              </div>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </PythonProvider>
   );
 }
 

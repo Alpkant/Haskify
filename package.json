@@ -2,7 +2,7 @@
   "name": "haskify",
   "private": true,
   "version": "0.0.0",
-   "resolutions": {
+  "resolutions": {
     "rollup": "^4.15.0"
   },
   "type": "module",
@@ -21,6 +21,7 @@
     "react": "^19.0.0",
     "react-chatbotify": "^2.0.0-beta.33",
     "react-dom": "^19.0.0",
+    "react-py": "^1.11.5",
     "react-router-dom": "^7.6.0",
     "react-syntax-highlighter": "^15.6.1",
     "tailwindcss": "^4.1.4"
