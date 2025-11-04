@@ -147,46 +147,91 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .input-prompt-box {
-  background: white;
-  padding: 20px;
+  background: #1e1e1e;
+  border: 2px solid #007acc;
+  padding: 24px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  min-width: 400px;
+  max-width: 500px;
 }
 
-.input-prompt-box p {
-  margin-bottom: 12px;
-  font-weight: 600;
+.input-prompt-text {
+  color: #d4d4d4;
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-family: 'Consolas', 'Monaco', monospace;
 }
 
-.input-prompt-box input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
+.input-prompt-box form {
+  display: flex;
+  gap: 8px;
+}
+
+.input-prompt-field {
+  flex: 1;
+  padding: 10px 12px;
+  background: #2d2d2d;
+  border: 1px solid #3e3e3e;
   border-radius: 4px;
-  margin-bottom: 12px;
+  color: #d4d4d4;
   font-size: 14px;
+  font-family: 'Consolas', 'Monaco', monospace;
 }
 
-.input-prompt-box button {
-  width: 100%;
-  padding: 8px;
-  background: #007bff;
+.input-prompt-field:focus {
+  outline: none;
+  border-color: #007acc;
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.3);
+}
+
+.input-prompt-button {
+  padding: 10px 20px;
+  background: #007acc;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
 }
 
-.input-prompt-box button:hover {
-  background: #0056b3;
+.input-prompt-button:hover {
+  background: #005a9e;
+}
+
+.stop-button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.stop-button:hover {
+  background: #c82333;
+}
+
+.status-indicator {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
