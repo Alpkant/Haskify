@@ -235,3 +235,18 @@
   gap: 8px;
   align-items: center;
 }
+
+.awaiting-input-badge {
+  color: #ffc107;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 4px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
