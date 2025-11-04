@@ -256,3 +256,62 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+
+/* Inline input field (matches official react-py) */
+.input-inline-container {
+  padding: 16px;
+  background: #2d2d2d;
+  border-top: 1px solid #3e3e3e;
+  border-bottom: 1px solid #3e3e3e;
+}
+
+.input-inline-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d4d4d4;
+  margin-bottom: 8px;
+}
+
+.input-inline-wrapper {
+  display: flex;
+  gap: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.input-inline-field {
+  flex: 1;
+  padding: 10px 12px;
+  background: #1e1e1e;
+  border: none;
+  color: #d4d4d4;
+  font-size: 14px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  outline: none;
+}
+
+.input-inline-field:focus {
+  background: #252525;
+}
+
+.input-inline-button {
+  padding: 10px 24px;
+  background: #007acc;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.input-inline-button:hover {
+  background: #005a9e;
+}
+
+.input-inline-button:active {
+  background: #004578;
+}

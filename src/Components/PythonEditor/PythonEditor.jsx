@@ -21,8 +21,16 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     prompt
   } = usePython();
 
-  const [inputValue, setInputValue] = useState('');
   const [showOutput, setShowOutput] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = React.useRef(null);
+
+  // Auto-focus input when awaiting
+  useEffect(() => {
+    if (isAwaitingInput && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isAwaitingInput]);
 
   // Update output whenever stdout/stderr changes
   useEffect(() => {
@@ -34,11 +42,10 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
         output += stderr;
       }
       updateSharedState({ output });
-      setShowOutput(true);
     }
   }, [stdout, stderr]);
 
-  const handleRunCode = async () => {
+  const handleRunCode = () => {
     const code = sharedState.code;
     
     if (!code || code.trim() === '') {
@@ -46,24 +53,27 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       return;
     }
 
-    setShowOutput(false);
     updateSharedState({ output: "> Running Python code..." });
-    
-    try {
-      await runPython(code);
-      
-      // Log to backend after execution
-      setTimeout(async () => {
-        const finalOutput = stdout || stderr || "> Program executed (no output)";
-        await logToBackend(code, finalOutput);
-      }, 200);
+    runPython(code);  // Just run it - react-py handles input() blocking
+    setShowOutput(true);
+  };
 
-    } catch (error) {
-      console.error('Python execution error:', error);
-      const errorMsg = stderr || error.message || "Python execution failed";
-      updateSharedState({ output: `> Error:\n${errorMsg}` });
-      setShowOutput(true);
-    }
+  const handleStop = () => {
+    interruptExecution();
+    setShowOutput(false);
+    updateSharedState({ output: "> Execution interrupted" });
+  };
+
+  const handleInputSubmit = (e) => {
+    if (e) e.preventDefault();
+    sendInput(inputValue);
+    setInputValue('');
+    
+    // Log after a delay to capture final output
+    setTimeout(async () => {
+      const finalOutput = stdout || stderr || "> Program executed (no output)";
+      await logToBackend(sharedState.code, finalOutput);
+    }, 500);
   };
 
   const logToBackend = async (code, output) => {
@@ -98,20 +108,6 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     }
   };
 
-  const handleStop = () => {
-    interruptExecution();
-    setShowOutput(false);
-    updateSharedState({ output: "> Execution interrupted" });
-  };
-
-  const handleInputSubmit = (e) => {
-    e.preventDefault();
-    if (inputValue !== undefined && inputValue !== null) {
-      sendInput(inputValue);
-      setInputValue('');
-    }
-  };
-
   return (
     <div className="editor-container">
       <div className="editor-section">
@@ -133,12 +129,40 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
             enableLiveAutocompletion: true,
             enableSnippets: true,
             showLineNumbers: true,
+            highlightActiveLine: true,
             tabSize: 4,
             useWorker: false
           }}
           editorProps={{ $blockScrolling: true }}
         />
       </div>
+
+      {/* Inline input field (matches official react-py pattern) */}
+      {isAwaitingInput && (
+        <div className="input-inline-container">
+          <label className="input-inline-label">
+            Input
+          </label>
+          <div className="input-inline-wrapper">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleInputSubmit()}
+              placeholder={prompt || 'Enter value...'}
+              className="input-inline-field"
+            />
+            <button
+              type="button"
+              className="input-inline-button"
+              onClick={handleInputSubmit}
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="output-section">
         <div className="output-header">
@@ -149,7 +173,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
                 ⏳ Waiting for input...
               </span>
             )}
-            {isRunning && !isAwaitingInput && (
+            {isRunning && (
               <button 
                 className="stop-button"
                 onClick={handleStop}
@@ -173,30 +197,6 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
           </pre>
         )}
       </div>
-
-      {/* Input modal when Python calls input() */}
-      {isAwaitingInput && (
-        <div className="input-prompt-overlay">
-          <div className="input-prompt-box">
-            <p className="input-prompt-text">
-              {prompt || 'Python is waiting for input:'}
-            </p>
-            <form onSubmit={handleInputSubmit}>
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Enter value..."
-                className="input-prompt-field"
-                autoFocus
-              />
-              <button type="submit" className="input-prompt-button">
-                Submit
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
