@@ -26,9 +26,15 @@
 }
 
 .editor-section {
-  flex: 3;
-  min-height: 0;
-  overflow: auto;
+  position: relative;
+  height: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Ace editor inherits height from parent */
+.ace_editor {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace !important;
 }
 
 .output-section {

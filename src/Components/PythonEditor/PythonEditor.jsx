@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import Editor from '@monaco-editor/react';
-import './PythonEditor.css';
+import AceEditor from 'react-ace';
 import { usePython } from 'react-py';
+import './PythonEditor.css';
 
-let editorInstance = null;
+// Import Ace Editor themes and modes
+import 'ace-builds/src-noconflict/mode-python';
+import 'ace-builds/src-noconflict/theme-monokai';
+import 'ace-builds/src-noconflict/ext-language_tools';
 
 export default function PythonEditor({ sharedState, updateSharedState }) {
   const {
@@ -19,35 +22,21 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
   } = usePython();
 
   const [inputValue, setInputValue] = useState('');
-
-  // Add debugging
-  useEffect(() => {
-    console.log('🔍 Python state:', { isRunning, isAwaitingInput, prompt, stdout: stdout?.substring(0, 50) });
-  }, [isRunning, isAwaitingInput, prompt, stdout]);
+  const [showOutput, setShowOutput] = useState(false);
 
   // Update output whenever stdout/stderr changes
   useEffect(() => {
-    if (isRunning || (!isRunning && (stdout || stderr))) {
+    if (stdout || stderr) {
       let output = "";
-      
-      if (stdout) {
-        output += stdout;
-      }
-      
+      if (stdout) output += stdout;
       if (stderr) {
         if (output) output += '\n';
         output += stderr;
       }
-      
-      if (output) {
-        updateSharedState({ output });
-      }
+      updateSharedState({ output });
+      setShowOutput(true);
     }
-  }, [stdout, stderr, isRunning]);
-
-  const handleEditorDidMount = (editor) => {
-    editorInstance = editor;
-  };
+  }, [stdout, stderr]);
 
   const handleRunCode = async () => {
     const code = sharedState.code;
@@ -57,23 +46,23 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       return;
     }
 
-    // Clear previous output
+    setShowOutput(false);
     updateSharedState({ output: "> Running Python code..." });
     
     try {
-      // Just run the code - output will be handled by useEffect
       await runPython(code);
       
-      // Log to backend after execution completes
+      // Log to backend after execution
       setTimeout(async () => {
         const finalOutput = stdout || stderr || "> Program executed (no output)";
         await logToBackend(code, finalOutput);
-      }, 100);
+      }, 200);
 
     } catch (error) {
       console.error('Python execution error:', error);
       const errorMsg = stderr || error.message || "Python execution failed";
       updateSharedState({ output: `> Error:\n${errorMsg}` });
+      setShowOutput(true);
     }
   };
 
@@ -111,70 +100,45 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
 
   const handleStop = () => {
     interruptExecution();
+    setShowOutput(false);
     updateSharedState({ output: "> Execution interrupted" });
   };
 
   const handleInputSubmit = (e) => {
     e.preventDefault();
-    console.log('📤 Sending input:', inputValue);
     if (inputValue !== undefined && inputValue !== null) {
       sendInput(inputValue);
       setInputValue('');
     }
   };
 
-  const handleInputKeyPress = (e) => {
-    if (e.key === 'Enter' && !isAwaitingInput && !isRunning) {
-      e.preventDefault();
-      handleRunCode();
-    }
-  };
-
   return (
     <div className="editor-container">
       <div className="editor-section">
-        <Editor
-          height="100%"
-          language="python"
-          theme="vs-dark"
+        <AceEditor
+          mode="python"
+          theme="monokai"
           value={sharedState.code}
           onChange={(value) => updateSharedState({ code: value || '' })}
-          onMount={handleEditorDidMount}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            wordWrap: 'on',
-            lineNumbers: 'on',
-            scrollBeyondLastLine: false,
-            padding: { top: 20 },
-            renderLineHighlight: 'none',
-            lineDecorationsWidth: 10,
-            glyphMargin: false,
-            lineNumbersMinChars: 3,
-            folding: false,
-            autoClosingBrackets: 'always',
-            formatOnType: true,
-            suggestOnTriggerCharacters: true,
+          name="python-editor"
+          width="100%"
+          height="100%"
+          fontSize={14}
+          showPrintMargin={false}
+          showGutter={true}
+          highlightActiveLine={true}
+          readOnly={isRunning}
+          setOptions={{
+            enableBasicAutocompletion: true,
+            enableLiveAutocompletion: true,
+            enableSnippets: true,
+            showLineNumbers: true,
             tabSize: 4,
-            insertSpaces: true,
-            readOnly: isRunning
+            useWorker: false
           }}
+          editorProps={{ $blockScrolling: true }}
         />
       </div>
-
-      {/* Optional input field when not running */}
-      {!isAwaitingInput && !isRunning && (
-        <div className="input-field-container">
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleInputKeyPress}
-            placeholder="Press Enter to run code..."
-            className="program-input"
-          />
-        </div>
-      )}
 
       <div className="output-section">
         <div className="output-header">
@@ -185,7 +149,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
                 ⏳ Waiting for input...
               </span>
             )}
-            {isRunning && (
+            {isRunning && !isAwaitingInput && (
               <button 
                 className="stop-button"
                 onClick={handleStop}
@@ -203,12 +167,14 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
             </button>
           </div>
         </div>
-        <pre className="output-content">
-          {sharedState.output}
-        </pre>
+        {showOutput && (
+          <pre className="output-content">
+            {sharedState.output}
+          </pre>
+        )}
       </div>
 
-      {/* Real-time input prompt - MOVED TO END for proper z-index */}
+      {/* Input modal when Python calls input() */}
       {isAwaitingInput && (
         <div className="input-prompt-overlay">
           <div className="input-prompt-box">
