@@ -349,14 +349,42 @@ app.patch('/api/save-session/:id', async (req, res) => {
  * @property {number}   correctIndex
  */
 
-const seenQuizHashes = new Set();
+// Store quiz hashes per session with expiration
+const sessionQuizHashes = new Map(); // sessionId -> Set of hashes
+
 function hashQuiz(q) {
-  const base = `${q.question}||${(q.choices||[]).join('|')}||${q.correctIndex}`;
-  return crypto.createHash('sha1').update(base).digest('hex');
+  const base = `${q.question}`;  // Include choices
+  const hash = crypto.createHash('sha1').update(base).digest('hex');
+  console.log(`  Hash: ${hash.substring(0, 8)}... for: "${q.question.substring(0, 40)}..."`);
+  return hash;
 }
 
+// Clean up old session hashes (run periodically)
+setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, data] of sessionQuizHashes.entries()) {
+    // Remove sessions older than 2 hours
+    if (now - data.timestamp > 2 * 60 * 60 * 1000) {
+      sessionQuizHashes.delete(sessionId);
+    }
+  }
+}, 15 * 60 * 1000); // Clean every 15 minutes
+
 app.post('/api/quiz', async (req, res) => {
-  const { chatHistory = [], materialIds = [] } = req.body;
+  const { chatHistory = [], materialIds = [], sessionId } = req.body;
+  
+  console.log(`\nQuiz request:`);
+  console.log(`  SessionId: ${sessionId ? sessionId.substring(0, 12) + '...' : 'MISSING!'}`);
+  console.log(`  Current sessions tracked: ${sessionQuizHashes.size}`);
+  
+  // Get or create quiz hash set for this session
+  if (sessionId && !sessionQuizHashes.has(sessionId)) {
+    sessionQuizHashes.set(sessionId, { 
+      hashes: new Set(), 
+      timestamp: Date.now() 
+    });
+  }
+  const sessionHashes = sessionId ? sessionQuizHashes.get(sessionId).hashes : new Set();
 
   let context = '';
   try {
@@ -374,10 +402,18 @@ app.post('/api/quiz', async (req, res) => {
     }
   } catch {}
 
+  // Add variety instructions based on previous quizzes
+  const previousTopics = sessionId && sessionHashes.size > 0 
+    ? `\nYou have already generated ${sessionHashes.size} quiz(zes) in this session. Generate a question about a DIFFERENT Python topic or concept.`
+    : '';
+
   let systemPrompt = `
 You are a Python instructor. Generate exactly one multiple-choice quiz question about Python.
 Prefer facts from CONTEXT if provided; do not fabricate.
+${previousTopics}
 ${context}
+
+Topics to cover: variables, loops (for/while), functions, lists, dictionaries, conditionals, strings, file I/O, classes, error handling, list comprehensions, modules, sets, tuples, lambda functions, decorators, inheritance, recursion, comprehensions, built-in functions, exception handling, regular expressions, generators, context managers, list slicing, virtual environments, package management, docstrings, testing with unittest/pytest.
 
 Respond WITH NO EXPLANATION—only JSON with keys:
   id (UUID string),
@@ -390,14 +426,14 @@ Respond WITH NO EXPLANATION—only JSON with keys:
     let attempts = 0;
     let quiz;
 
-    while (attempts < 3) {
+    while (attempts < 5) { // Increased from 3 to 5 attempts
       const completion = await openrouter.chat.completions.create({
         model: "google/gemma-3-27b-it:free",
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: JSON.stringify(chatHistory) }
+          { role: 'user', content: `Generate a unique Python quiz question. Chat context: ${JSON.stringify(chatHistory.slice(-3))}` }
         ],
-        temperature: attempts === 0 ? 0.7 : 0.9
+        temperature: 1.2 + (attempts * 0.1) // Increase temperature with each attempt
       });
 
       let text = completion.choices[0].message.content.trim();
@@ -414,11 +450,15 @@ Respond WITH NO EXPLANATION—only JSON with keys:
         typeof quiz.correctIndex === 'number'
       ) {
         const h = hashQuiz(quiz);
-        if (!seenQuizHashes.has(h)) {
-          seenQuizHashes.add(h);
+        
+        // Check if this quiz was already generated in THIS session
+        if (!sessionHashes.has(h)) {
+          sessionHashes.add(h);
+          console.log(`✓ Generated unique quiz (${sessionHashes.size} total for session)`);
           break; 
         } else {
-          systemPrompt += "\nAvoid repeating previous quiz wording; vary topic or phrasing.";
+          console.log(`  Duplicate quiz detected, retrying (attempt ${attempts + 1})...`);
+          systemPrompt += `\n\nIMPORTANT: The previous question was a duplicate. Generate a question about a COMPLETELY DIFFERENT topic like: ${['error handling', 'file operations', 'dictionary methods', 'string formatting', 'lambda functions', 'decorators'][attempts % 6]}.`;
           attempts++;
           continue;
         }
@@ -427,7 +467,7 @@ Respond WITH NO EXPLANATION—only JSON with keys:
       }
     }
 
-    if (!quiz) throw new Error('Invalid quiz format');
+    if (!quiz) throw new Error('Invalid quiz format after maximum attempts');
 
     return res.json(quiz);
   } catch (err) {
@@ -527,12 +567,20 @@ const sessionSchema = new mongoose.Schema({
   lastActivity: { type: Date, default: Date.now },
   interactions: [
     {
-      type: { type: String, enum: ['ai', 'run'], required: true },
-      question: String,           // for type 'ai'
+      type: { type: String, enum: ['ai', 'run', 'quiz'], required: true }, // Added 'quiz'
+      question: String,           // for type 'ai' or 'quiz'
       aiResponse: String,         // for type 'ai'
       code: String,              // captured code snapshot
       output: String,            // code output or current output context
       materialIds: [String],     // attached materials on that turn
+      
+      // Quiz-specific fields
+      quizQuestion: String,      // The quiz question text
+      quizChoices: [String],     // Array of answer choices
+      correctAnswer: Number,     // Index of correct answer
+      selectedAnswer: Number,    // Index of student's answer
+      isCorrect: Boolean,        // Whether student answered correctly
+      
       timestamp: { type: Date, default: Date.now },
       meta: Object               // room for future fields
     }
@@ -770,6 +818,7 @@ app.post('/api/log/run', async (req, res) => {
         },
         { new: true }
       );
+      return res.json({ success: true, sessionId }); // Return existing sessionId
     } else {
       // Create new session with first interaction
       const newSession = new Session({
@@ -777,12 +826,70 @@ app.post('/api/log/run', async (req, res) => {
         interactions: [interaction]
       });
       await newSession.save();
+      console.log(`✓ Created new session from code run: ${newSession._id}`);
+      
+      // Return the new sessionId so frontend can use it
+      return res.json({ success: true, sessionId: newSession._id.toString() });
     }
-
-    return res.json({ success: true });
   } catch (err) {
     console.error('Usage log (run) failed:', err);
     return res.status(500).json({ success: false });
+  }
+});
+
+// Log quiz answer
+app.post('/api/log/quiz', async (req, res) => {
+  try {
+    const { 
+      userId, 
+      sessionId, 
+      quizQuestion, 
+      quizChoices, 
+      correctAnswer, 
+      selectedAnswer 
+    } = req.body;
+    
+    // Calculate if answer is correct
+    const isCorrect = selectedAnswer === correctAnswer;
+    
+    // Create interaction object
+    const interaction = {
+      type: 'quiz',
+      quizQuestion: quizQuestion || '',
+      quizChoices: quizChoices || [],
+      correctAnswer: correctAnswer,
+      selectedAnswer: selectedAnswer,
+      isCorrect: isCorrect,
+      timestamp: new Date()
+    };
+
+    if (sessionId) {
+      // Update existing session with new interaction
+      await Session.findByIdAndUpdate(
+        sessionId,
+        { 
+          $push: { interactions: interaction },
+          $set: { lastActivity: new Date() }
+        },
+        { new: true }
+      );
+      
+      console.log(`Quiz answer logged: ${isCorrect ? 'Correct' : 'Incorrect'} (Session: ${sessionId})`);
+    } else {
+      // Create new session with first interaction
+      const newSession = new Session({
+        userId: userId || null,
+        interactions: [interaction]
+      });
+      await newSession.save();
+      
+      return res.json({ success: true, sessionId: newSession._id });
+    }
+
+    return res.json({ success: true, isCorrect });
+  } catch (err) {
+    console.error('Quiz logging failed:', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

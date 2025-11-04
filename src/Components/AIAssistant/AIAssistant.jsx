@@ -59,14 +59,17 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     return () => clearInterval(typingIntervalRef.current);
   }, []);
 
-  // Load sessionId from localStorage on mount
+  // Load or keep sessionId from localStorage on mount
   useEffect(() => {
     const savedSessionId = localStorage.getItem('haskify_session');
     if (savedSessionId) {
       sessionIdRef.current = savedSessionId;
-      console.log('Loaded sessionId from localStorage:', savedSessionId);
+      console.log('✓ [AIAssistant] Loaded existing session:', savedSessionId.substring(0, 8) + '...');
+    } else {
+      console.log('⚠️ [AIAssistant] No session found - will create on first interaction');
     }
   }, []);
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,7 +105,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const res = await fetch(`${API_BASE}/api/quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatHistory: sessionHistoryRef.current }),
+        body: JSON.stringify({ chatHistory: sessionHistoryRef.current, sessionId: sessionIdRef.current  }),
       });
       const quiz = await res.json();
 
@@ -233,6 +236,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       if (data.sessionId && !sessionIdRef.current) {
         sessionIdRef.current = data.sessionId;
         localStorage.setItem('haskify_session', data.sessionId);
+        console.log('✓ [AIAssistant] Created and saved new session:', data.sessionId.substring(0, 8) + '...');
       }
 
       // remove loading bubble
@@ -285,8 +289,8 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
               .then((data) => {
                 if (data.success && data.id) {
                   sessionIdRef.current = data.id;
-                  // Store sessionId in localStorage for Python Editor
                   localStorage.setItem('haskify_session', data.id);
+                  console.log('✓ [AIAssistant] Saved session:', data.id.substring(0, 8) + '...');
                 }
               });
           } else {
@@ -413,13 +417,37 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                           : ""
                       }`}
                       disabled={selected != null}
-                      onClick={() =>
+                      onClick={async () => {
+                        // Update UI first
                         setMessages((prev) =>
                           prev.map((m, j) =>
                             j === idx ? { ...m, selected: i } : m
                           )
-                        )
-                      }
+                        );
+                        
+                        // Log to backend
+                        const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+                        const savedUser = localStorage.getItem('haskify_user');
+                        const userId = savedUser ? JSON.parse(savedUser).userId : null;
+                        
+                        try {
+                          await fetch(`${API_BASE}/api/log/quiz`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              userId: userId,
+                              sessionId: sessionIdRef.current,
+                              quizQuestion: question,
+                              quizChoices: choices,
+                              correctAnswer: correctIndex,
+                              selectedAnswer: i
+                            })
+                          });
+                          console.log(`Quiz answer logged: ${i === correctIndex ? 'Correct' : 'Incorrect'}`);
+                        } catch (error) {
+                          console.error('Failed to log quiz answer:', error);
+                        }
+                      }}
                     >
                       {c}
                     </button>

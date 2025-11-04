@@ -143,7 +143,12 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
         // Get sessionId from localStorage (set by AI Assistant)
         const savedSessionId = localStorage.getItem('haskify_session');
         
-        await fetch(`${API_BASE}/api/log/run`, {
+        console.log('📝 Logging code execution...');
+        console.log('  API:', API_BASE);
+        console.log('  UserId:', userId);
+        console.log('  SessionId:', savedSessionId || 'None (will create new)');
+        
+        const response = await fetch(`${API_BASE}/api/log/run`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -153,8 +158,27 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
             output: output || "> Program executed (no output)"
           })
         });
+
+        console.log('  Response status:', response.status);
+        
+        if (!response.ok) {
+          console.error('  Failed to log:', await response.text());
+          return;
+        }
+
+        // Save the sessionId if a new one was created
+        const logResult = await response.json();
+        console.log('  [PythonEditor] Log result:', logResult);
+
+        if (logResult.sessionId && !savedSessionId) {
+          localStorage.setItem('haskify_session', logResult.sessionId);
+          console.log('✓ [PythonEditor] Created and saved new session:', logResult.sessionId.substring(0, 8) + '...');
+        } else if (savedSessionId) {
+          console.log('✓ [PythonEditor] Code logged to existing session:', savedSessionId.substring(0, 8) + '...');
+        }
+
       } catch (logErr) {
-        console.warn('Code execution log failed:', logErr);
+        console.error('❌ Code execution log failed:', logErr);
       }
 
     } catch (error) {
