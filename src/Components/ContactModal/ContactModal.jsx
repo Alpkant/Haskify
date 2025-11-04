@@ -16,16 +16,28 @@ export default function ContactModal({ isOpen, onClose }) {
               email: e.target[1].value,
               message: e.target[2].value,
             };
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/contact`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data),
-            });
-            if (res.ok) {
-              alert('Message sent!');
-              onClose();
-            } else {
-              alert('Failed to send message.');
+            
+            // Fix: Add proper fallback like other components
+            const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+            
+            try {
+              const res = await fetch(`${API_BASE}/api/contact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+              });
+              
+              if (res.ok) {
+                alert('Message sent!');
+                e.target.reset();
+                onClose();
+              } else {
+                const error = await res.json();
+                alert('Failed to send message: ' + (error.error || 'Unknown error'));
+              }
+            } catch (err) {
+              console.error('Contact error:', err);
+              alert('Network error. Make sure backend is running at ' + API_BASE);
             }
           }}
         >
@@ -39,7 +51,7 @@ export default function ContactModal({ isOpen, onClose }) {
           </label>
           <label>
             Message:
-            <textarea required />
+            <textarea required minLength={10} />
           </label>
           <div className="modal-actions">
             <button type="submit">Send</button>

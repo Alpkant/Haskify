@@ -109,7 +109,7 @@ app.post('/ai/ask', async (req, res) => {
     ];
     const queryLower = (query || '').toLowerCase().trim();
     const isSimpleTest = simpleTestMessages.some(
-      msg => queryLower === msg || (queryLower.includes(msg) && queryLower.length < 10)
+      msg => queryLower === msg || (queryLower.includes(msg) && queryLower.length < 5)
     );
     if (isSimpleTest) {
       return res.json({ response: "Hi! I'm here to help with Python programming. Ask me about lists, functions, classes, loops, or any Python concepts!" });
@@ -125,14 +125,15 @@ app.post('/ai/ask', async (req, res) => {
     }
 
     const contextBlock = retrieved.length
-      ? `\n\nCONTEXT (from materials):\n` +
-        retrieved.map(r => 
-          `[${r.source === 'system' ? '📚 Course Material' : '📄 Your Upload'}: ${r.title.slice(0,40)} #${r.idx}]\n${r.text}`
+      ? `\n\nCONTEXT (from materials)\n` +
+        `You have access to ${retrieved.length} relevant document chunks. Use them to answer.\n\n` +
+        retrieved.map((r, i) => 
+          `[Chunk ${i+1}] Source: ${r.source === 'system' ? 'Course Material' : 'Student Upload'} - "${r.title.slice(0,40)}"\n${r.text.slice(0, 1000)}\n`
         ).join('\n---\n')
       : '';
 
     if (contextBlock) {
-      console.log(`✓ Adding ${retrieved.length} chunks to AI context`);
+      console.log(`✓ Adding ${retrieved.length} chunks (${retrieved.reduce((sum, r) => sum + r.text.length, 0)} chars) to AI context`);
     }
 
     const systemMessage = `You are a concise Python tutor. MAXIMUM 50 words per response.
@@ -164,12 +165,24 @@ Keep it short. Hints only.`;
         { role: "user", content: query }
       ],
       stream: true,
-      temperature: 0.3
+      temperature: 0.35
     });
 
     let responseText = "";
     for await (const chunk of stream) {
       responseText += chunk.choices[0]?.delta?.content || "";
+    }
+
+    // Clean up response artifacts
+    responseText = responseText
+      .trim()
+      .replace(/^[:;,\.\-\s]+/, '')  // Remove leading : , . - etc
+      .replace(/\s+/g, ' ')          // Normalize multiple spaces
+      .trim();
+
+    // Fallback for empty responses
+    if (!responseText || responseText.length < 3) {
+      responseText = "I'm here to help with Python. What would you like to know?";
     }
 
     try {
@@ -245,7 +258,7 @@ app.post('/run-python', executionLimiter, async (req, res) => {
 
     // Run
     const { stdout, stderr } = await execPromise(
-      `echo "${req.body.input || ''}" | timeout 10s python3 ${tempFile}`,
+      `echo "${req.body.input || ''}" | timeout 30s python3 ${tempFile}`,
       { maxBuffer: 1024 * 1024 }
     );
     return res.json({ output: stdout || stderr || "> Program executed (no output)" });
@@ -257,27 +270,43 @@ app.post('/run-python', executionLimiter, async (req, res) => {
 
 app.post('/api/contact', async (req, res) => {
   const { name, email, message } = req.body;
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'my_gmail@gmail.com',
-      pass: 'my_gmail_app_password',
-    }
-  });
+  
+  // Validation
+  if (!name || !email || !message) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Name, email, and message are required' 
+    });
+  }
+  
+  if (message.length < 10) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Message must be at least 10 characters' 
+    });
+  }
 
   try {
-    await transporter.sendMail({
-      from: email,
-      to: 'kantarci@em.uni-frankfurt.de',
-      subject: `Contact Form Submission from ${name}`,
-      text: message,
-      replyTo: email
+    // Save to database
+    const contactMessage = new ContactMessage({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      message: message.trim(),
+      userAgent: req.headers['user-agent']
     });
-    return res.json({ success: true });
+    
+    await contactMessage.save();
+    console.log(`✓ Contact message saved from ${email} (ID: ${contactMessage._id})`);
+    return res.json({ success: true, message: 'Message sent successfully' });
+
   } catch (err) {
-    console.error("Email send error:", err);
-    return res.status(500).json({ success: false, error: 'Failed to send email' });
+    console.error("Contact form error:", err);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Failed to submit message. Please try again.' 
+    });
   }
+  
 });
 
 app.post('/api/save-session', async (req, res) => {
@@ -595,6 +624,17 @@ const SessionMaterial = mongoose.models.SessionMaterial ||
 const MaterialReference = mongoose.models.MaterialReference || 
   mongoose.model('MaterialReference', materialReferenceSchema);
 
+// Contact Message Schema
+const contactMessageSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true },
+  message: { type: String, required: true },
+  submittedAt: { type: Date, default: Date.now },
+  userAgent: String
+});
+
+const ContactMessage = mongoose.models.ContactMessage || 
+  mongoose.model('ContactMessage', contactMessageSchema);
 
 // Login endpoint
 app.post('/api/login', async (req, res) => {
