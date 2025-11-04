@@ -134,7 +134,13 @@ print("Welcome to Haskify! \\n Start coding now!")`,
 
   // Show main app if authenticated
   return (
-    <PythonProvider>
+    <PythonProvider
+      packages={{
+        official: [],
+      }}
+      lazy={true}
+      stdin={true}  // ← Explicitly enable stdin
+    >
       <BrowserRouter>
         <Routes>
           <Route
