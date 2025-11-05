@@ -139,7 +139,6 @@ print("Welcome to Haskify! \\n Start coding now!")`,
         official: [],
       }}
       lazy={true}
-      stdin={true}  // ← Explicitly enable stdin
     >
       <BrowserRouter>
         <Routes>

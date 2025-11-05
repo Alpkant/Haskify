@@ -9,6 +9,12 @@ import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
 
 export default function PythonEditor({ sharedState, updateSharedState }) {
+  // Debug: Check SharedArrayBuffer
+  useEffect(() => {
+    console.log('🔍 SharedArrayBuffer available:', typeof SharedArrayBuffer !== 'undefined');
+    console.log('🔍 crossOriginIsolated:', window.crossOriginIsolated);
+  }, []);
+
   const {
     runPython,
     stdout,
