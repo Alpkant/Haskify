@@ -8,6 +8,10 @@ import 'ace-builds/src-noconflict/mode-python';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
 
+// Add this to suppress warnings:
+import ace from 'ace-builds/src-noconflict/ace';
+ace.config.set('basePath', '/node_modules/ace-builds/src-noconflict');
+
 export default function PythonEditor({ sharedState, updateSharedState }) {
   // Debug: Check SharedArrayBuffer
   useEffect(() => {

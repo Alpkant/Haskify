@@ -25,6 +25,6 @@ export default defineConfig({
     global: 'globalThis',
   },
   worker: {
-    format: 'es',
+    format: 'iife',
   }
 })
