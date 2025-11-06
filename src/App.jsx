@@ -136,7 +136,7 @@ print("Welcome to Haskify! \\n Start coding now!")`,
   return (
     <PythonProvider
       packages={{
-        official: [],
+        official: ['numpy', 'matplotlib', 'pandas', 'scipy', 'scikit-learn'],
       }}
       lazy={true}
     >

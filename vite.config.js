@@ -12,6 +12,7 @@ export default defineConfig({
     exclude: ['pyodide', 'react-py']
   },
   build: {
+    target: 'esnext',
     rollupOptions: {
       external: ['pyodide'],
       output: {
@@ -25,6 +26,6 @@ export default defineConfig({
     global: 'globalThis',
   },
   worker: {
-    format: 'iife',
+    format: 'es',
   }
 })
