@@ -9,7 +9,10 @@ export default defineConfig({
     crossOriginIsolation()
   ],
   optimizeDeps: {
-    exclude: ['pyodide', 'react-py']
+    exclude: ['pyodide', 'react-py'],
+    esbuildOptions: {
+      target: 'esnext'
+    }
   },
   build: {
     target: 'esnext',
@@ -27,5 +30,6 @@ export default defineConfig({
   },
   worker: {
     format: 'es',
+    plugins: () => []
   }
 })
