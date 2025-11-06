@@ -6,7 +6,9 @@ import crossOriginIsolation from 'vite-plugin-cross-origin-isolation'
 export default defineConfig({
   plugins: [
     react(),
-    crossOriginIsolation()
+    // Only use crossOriginIsolation plugin in development
+    // Vercel handles these headers via vercel.json
+    ...(process.env.NODE_ENV !== 'production' ? [crossOriginIsolation()] : [])
   ],
   optimizeDeps: {
     exclude: ['pyodide', 'react-py'],

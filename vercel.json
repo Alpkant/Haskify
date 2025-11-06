@@ -58,7 +58,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!react-py-sw\\.js$).*)",
+      "source": "/((?!assets/|react-py-sw\\.js$).*)",
       "destination": "/index.html"
     }
   ]
