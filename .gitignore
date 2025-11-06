@@ -26,3 +26,5 @@ dist-ssr
 
 # Environment
 .env
+.env.production
+.env.local
