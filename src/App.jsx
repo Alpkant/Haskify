@@ -74,29 +74,25 @@ print("Welcome to Haskify! \\n Start coding now!")`,
       return;
     }
 
-    const ensureReactPyWorker = async () => {
-      try {
-        const registrations = await navigator.serviceWorker.getRegistrations();
+    const initWorker = async () => {
+      const registrations = await navigator.serviceWorker.getRegistrations();
 
-        await Promise.all(
-          registrations
-            .filter((reg) => !reg.active?.scriptURL.endsWith('/react-py-sw.js'))
-            .map((reg) => reg.unregister())
-        );
+      await Promise.all(
+        registrations
+          .filter((reg) => reg.scope.endsWith('/assets/'))
+          .map((reg) => reg.unregister())
+      );
 
-        const hasRootWorker = registrations.some(
-          (reg) => reg.active?.scriptURL.endsWith('/react-py-sw.js')
-        );
+      const hasRootWorker = registrations.some(
+        (reg) => reg.scope === 'https://haskify.vercel.app/'
+      );
 
-        if (!hasRootWorker) {
-          await navigator.serviceWorker.register('/react-py-sw.js', { scope: '/' });
-        }
-      } catch (err) {
-        console.error('Failed to ensure react-py service worker:', err);
+      if (!hasRootWorker) {
+        await navigator.serviceWorker.register('/react-py-sw.js', { scope: '/' });
       }
     };
 
-    ensureReactPyWorker();
+    initWorker();
   }, []);
 
 
