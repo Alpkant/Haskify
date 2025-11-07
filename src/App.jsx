@@ -69,15 +69,7 @@ print("Welcome to Haskify! \\n Start coding now!")`,
     checkSession();
   }, []);
 
-  useEffect(() => {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      registrations.forEach(reg => {
-        if (!reg.active || !reg.active.scriptURL.endsWith('/react-py-sw.js')) {
-          reg.unregister();
-        }
-      });
-    });
-  }, []);
+
   
   useEffect(() => {
     if (!loading) return;
