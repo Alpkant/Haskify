@@ -70,16 +70,21 @@ print("Welcome to Haskify! \\n Start coding now!")`,
   }, []);
 
   useEffect(() => {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(reg => {
+        if (!reg.active || !reg.active.scriptURL.endsWith('/react-py-sw.js')) {
+          reg.unregister();
+        }
+      });
+    });
+
     navigator.serviceWorker
       .register('/react-py-sw.js')
-      .then((registration) =>
-        console.log(
-          'Service Worker registration successful with scope: ',
-          registration.scope
-        )
+      .then(reg =>
+        console.log('Service Worker registration successful with scope:', reg.scope)
       )
-      .catch((err) => console.log('Service Worker registration failed: ', err))
-  }, [])
+      .catch(err => console.log('Service Worker registration failed:', err));
+  }, []);
   
   useEffect(() => {
     if (!loading) return;
