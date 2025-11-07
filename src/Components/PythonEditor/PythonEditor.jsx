@@ -148,7 +148,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       </div>
 
       {/* Inline input field (matches official react-py pattern) */}
-      {isAwaitingInput && (
+      {(
         <div className="input-inline-container">
           <label className="input-inline-label">
             Input
