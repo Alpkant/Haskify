@@ -12,6 +12,8 @@ import 'ace-builds/src-noconflict/ext-language_tools';
 import ace from 'ace-builds/src-noconflict/ace';
 ace.config.set('basePath', '/node_modules/ace-builds/src-noconflict');
 
+import 'ace-builds/src-noconflict/snippets/python';
+
 export default function PythonEditor({ sharedState, updateSharedState }) {
   // Debug: Check SharedArrayBuffer
   useEffect(() => {
