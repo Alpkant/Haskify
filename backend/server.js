@@ -167,6 +167,49 @@ Run this and modify the TODO. Does the loop now finish as expected?"`
   }
 ];
 
+function summarizeRecentQuizzes(sessionDoc, max = 2) {
+  if (!sessionDoc?.interactions?.length) return '';
+
+  const quizEntries = sessionDoc.interactions
+    .filter((it) => it.type === 'quiz')
+    .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+    .slice(0, max);
+
+  if (!quizEntries.length) return '';
+
+  const lines = quizEntries.map((quiz, idx) => {
+    const dateLabel = quiz.timestamp
+      ? new Date(quiz.timestamp).toISOString().split('T')[0]
+      : `Quiz ${idx + 1}`;
+
+    const questionPreview = (quiz.quizQuestion || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 100);
+
+    const label = (n) =>
+      typeof n === 'number' && n >= 0 ? String.fromCharCode(65 + n) : '?';
+    const choice = (n) =>
+      typeof n === 'number' && quiz.quizChoices?.[n]
+        ? quiz.quizChoices[n]
+        : '';
+
+    const student = label(quiz.selectedAnswer);
+    const studentChoice = choice(quiz.selectedAnswer);
+    const correct = label(quiz.correctAnswer);
+    const correctChoice = choice(quiz.correctAnswer);
+
+    return `[${dateLabel}] ${quiz.isCorrect ? 'Correct' : 'Incorrect'} • `
+      + `Q: "${questionPreview}${questionPreview.length === 100 ? '…' : ''}" `
+      + `• Student: ${student}${studentChoice ? ` ${studentChoice}` : ''}`
+      + (quiz.isCorrect
+        ? ''
+        : ` • Correct: ${correct}${correctChoice ? ` ${correctChoice}` : ''}`);
+  });
+
+  return `QUIZ HISTORY (last ${lines.length})\n${lines.join('\n')}`;
+}
+
 app.post('/ai/ask', async (req, res) => {
   try {
     const { query, code, output, sessionId, userId } = req.body;
@@ -192,12 +235,32 @@ app.post('/ai/ask', async (req, res) => {
       console.warn('⚠️  No sessionId provided, RAG disabled');
     }
 
-    const contextBlock = retrieved.length
-      ? `\n\nCONTEXT (from materials)\n` +
+    let quizHistorySummary = '';
+    if (sessionId && mongoose.connection.readyState === 1) {
+      try {
+        const sessionDoc = await Session.findById(sessionId).lean();
+        quizHistorySummary = summarizeRecentQuizzes(sessionDoc, 2);
+      } catch (err) {
+        console.warn('Unable to load quiz history:', err?.message || err);
+      }
+    }
+
+    const contextSections = [];
+    if (retrieved.length) {
+      contextSections.push(
+        `CONTEXT (from materials)\n` +
         `You have access to ${retrieved.length} relevant document chunks. Use them to answer.\n\n` +
         retrieved.map((r, i) => 
           `[Chunk ${i+1}] Source: ${r.source === 'system' ? 'Course Material' : 'Student Upload'} - "${r.title.slice(0,40)}"\n${r.text.slice(0, 1000)}\n`
         ).join('\n---\n')
+      );
+    }
+    if (quizHistorySummary) {
+      contextSections.push(quizHistorySummary);
+    }
+
+    const contextBlock = contextSections.length
+      ? `\n\n${contextSections.join('\n\n---\n\n')}`
       : '';
 
     if (contextBlock) {
@@ -224,7 +287,7 @@ TUTORING STYLE
 6. Celebrate progress; close with encouragement or a challenge for self-study. But don't make it repetitive.
 
 CONTENT RULES  
-- Use only plain text and code fences.
+- Use only plain text and code fences. Do not use bold/italic or other markdown.
 - Your code responses should be in formatted python code blocks.
 - Keep responses not very long unless the student explicitly requests more depth.  
 - Prefer evidence from provided CONTEXT (uploaded material or weekly notes). If unsure, say so and propose how to investigate.  
