@@ -4,6 +4,8 @@ import blackStars from "../../assets/blackStars.png";
 import arrowIcon from "../../assets/arrow.png";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { tomorrow } from "react-syntax-highlighter/dist/esm/styles/prism";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function AIAssistant({ sharedState, updateSharedState }) {
   const [messages, setMessages] = useState([]);
@@ -336,53 +338,66 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     }
   };
 
-  const formatMessage = (text) => {
-    const parts = text.split(/(```[\s\S]*?```)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const code = part.replace(/```(\w+)?\n?|\n?```/g, "").trim();
-        const language = part.match(/```(\w+)/)?.[1] || "text";
-        return (
-          <div key={i} className="code-block-container">
-            <SyntaxHighlighter
-              language={language}
-              style={tomorrow}
-              customStyle={{
-                background: "#282c34",
-                borderRadius: "6px",
-                padding: "12px",
-                margin: "8px 0",
-                fontSize: "0.8em",
-                maxHeight: "300px",
-                overflow: "auto",
-              }}
-              showLineNumbers
-              wrapLines
-            >
-              {code}
-            </SyntaxHighlighter>
-            {language === "python" && (
-              <button
-                className="apply-code-button"
-                onClick={() =>
-                  updateSharedState({ code: code, changedLines: [] })
-                }
-              >
-                Apply Code
-              </button>
-            )}
-          </div>
-        );
-      }
-      return (
-        <div key={i}>
-          {part.split("\n").map((line, j) => (
-            <div key={j}>{line}</div>
-          ))}
-        </div>
-      );
-    });
-  };
+  const formatMessage = (text) => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ node, inline, className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || "");
+          if (!inline && match) {
+            const language = match[1];
+            const code = String(children).replace(/\n$/, "");
+            return (
+              <div className="code-block-container">
+                <SyntaxHighlighter
+                  language={language}
+                  style={tomorrow}
+                  customStyle={{
+                    background: "#282c34",
+                    borderRadius: "6px",
+                    padding: "12px",
+                    margin: "8px 0",
+                    fontSize: "0.8em",
+                    maxHeight: "300px",
+                    overflow: "auto",
+                  }}
+                  showLineNumbers
+                  wrapLines
+                  {...props}
+                >
+                  {code}
+                </SyntaxHighlighter>
+                {language === "python" && (
+                  <button
+                    className="apply-code-button"
+                    onClick={() =>
+                      updateSharedState({ code, changedLines: [] })
+                    }
+                  >
+                    Apply Code
+                  </button>
+                )}
+              </div>
+            );
+          }
+          return (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          );
+        },
+        a({ children, href, ...props }) {
+          return (
+            <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
+              {children}
+            </a>
+          );
+        },
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
 
   return (
     <div className="ai-assistant">
