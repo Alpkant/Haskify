@@ -32,7 +32,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify’s EPI tutor! Tell me which GPR/EPR topic you’re practicing. Numbers, loops, functions, OOP, data, ML—and we’ll work through it together.";
+      "Welcome to Haskify! Tell me which GPR/EPR topic you’re practicing. Numbers, loops, functions, OOP, data, ML—and we’ll work through it together.";
     let currentIndex = 0;
 
     setIsTyping(true);

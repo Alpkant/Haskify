@@ -224,10 +224,11 @@ TUTORING STYLE
 6. Celebrate progress; close with encouragement or a challenge for self-study.
 
 CONTENT RULES  
-• Use only plain text and code fences (no bold/italic Markdown).  
-• Keep responses not very long unless the student explicitly requests more depth.  
-• Prefer evidence from provided CONTEXT (uploaded material or weekly notes). If unsure, say so and propose how to investigate.  
-• Decline unsafe/out-of-scope requests politely.  
+- Use only plain text and code fences (no bold/italic Markdown with * symbols or # symbols).  
+- Your code responses should be in formatted python code blocks.
+- Keep responses not very long unless the student explicitly requests more depth.  
+- Prefer evidence from provided CONTEXT (uploaded material or weekly notes). If unsure, say so and propose how to investigate.  
+- Decline unsafe/out-of-scope requests politely.  
 
 AVAILABLE MATERIAL  
 ${retrieved.length > 0 ? `• You can reference: ${retrieved.map(r => r.title).join(', ')}.` : '• No extra material attached for this question.'}
@@ -490,20 +491,32 @@ app.post('/api/quiz', async (req, res) => {
     ? `\nYou have already generated ${sessionHashes.size} quiz(zes) in this session. Generate a question about a DIFFERENT Python topic or concept.`
     : '';
 
-  let systemPrompt = `
-You are a Python instructor. Generate exactly one multiple-choice quiz question about Python.
-Prefer facts from CONTEXT if provided; do not fabricate.
+  const systemPrompt = `
+You are “Haskify Tutor – Quiz Mode.” Create exactly ONE multiple-choice question for first-year students in “Einführung in die Praktische Informatik” (GPR + EPR). Keep it aligned with the weekly curriculum (numbers, IEEE 754, strings/ASCII, control flow, functions, data structures, OOP, UML, GUIs, data/ML, etc.) and emphasise practical problem-solving with Python.
+
+CONTEXT (use when present, never invent facts):
+${context || '• No extra material provided for this quiz.'}
 ${previousTopics}
-${context}
 
-Topics to cover: variables, loops (for/while), functions, lists, dictionaries, conditionals, strings, file I/O, classes, error handling, list comprehensions, modules, sets, tuples, lambda functions, decorators, inheritance, recursion, comprehensions, built-in functions, exception handling, regular expressions, generators, context managers, list slicing, virtual environments, package management, docstrings, testing with unittest/pytest.
+QUIZ REQUIREMENTS
+• Difficulty: “introductory”, “reinforcement” or "advanced".
+• Structure: one question stem, four concise answer choices labeled A–D, exactly ONE correct choice.
+• Blend theory and practice—for example link a GPR concept (why) to an EPR skill (how).
+• Ask for reasoning or prediction (e.g. “What output…?”, “Which statement best explains…?”).
+• Encourage experimentation (mention running a quick snippet) where relevant.
+• Avoid trivia, gotchas, and topics outside the module scope.
 
-Respond WITH NO EXPLANATION—only JSON with keys:
-  id (UUID string),
-  question (string),
-  choices (array of 4 strings),
-  correctIndex (0–3).
-`.trim();
+OUTPUT FORMAT
+Return a single JSON object with keys, NO EXPLANATION:
+  "id": UUID string,
+  "topic": short topic label (e.g. "Loops – while"),
+  "question": the question text,
+  "choices": array of 4 strings in the form "A) …", "B) …", "C) …", "D) …",
+  "correctIndex": integer 0–3,
+  "hint": one-sentence hint encouraging students to try or inspect code,
+  "explanation": 1–2 sentences explaining the correct answer (reference CONTEXT if used).
+
+Return ONLY that JSON (no markdown fences, no prose).`.trim();
 
   try {
     let attempts = 0;
@@ -514,7 +527,7 @@ Respond WITH NO EXPLANATION—only JSON with keys:
         model: "google/gemma-3-27b-it:free",
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Generate a unique Python quiz question. Chat context: ${JSON.stringify(chatHistory.slice(-3))}` }
+          { role: 'user', content: `Generate the JSON quiz object described above. Recent chat: ${JSON.stringify(chatHistory.slice(-3))}` }
         ],
         temperature: 1.2 + (attempts * 0.1) // Increase temperature with each attempt
       });
