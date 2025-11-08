@@ -414,7 +414,9 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                   OUR AI
                 </div>
                 <div className="message-text quiz-bubble">
-                  <p className="quiz-question">{question}</p>
+                  <div className="quiz-question">
+                    {formatMessage(question)}
+                  </div>
                   {choices.map((c, i) => (
                     <button
                       key={i}
