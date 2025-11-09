@@ -56,7 +56,17 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       }
       updateSharedState({ output });
     }
-  }, [stdout, stderr]);
+    if (pendingExecutionRef.current) {
+      pendingExecutionRef.current.stdout = stdout || '';
+      pendingExecutionRef.current.stderr = stderr || '';
+      if (stdout || stderr) {
+        pendingExecutionRef.current.outputUpdated = true;
+        if (!isRunning) {
+          flushPendingExecution();
+        }
+      }
+    }
+  }, [stdout, stderr, isRunning]);
 
   const handleRunCode = () => {
     const code = sharedState.code;
@@ -68,7 +78,11 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
 
     updateSharedState({ output: "> Running Python code..." });
     pendingExecutionRef.current = {
-      codeSnapshot: code
+      codeSnapshot: code,
+      stdout: '',
+      stderr: '',
+      outputUpdated: false,
+      flushTimer: null
     };
     runPython(code);  // Just run it - react-py handles input() blocking
     setShowOutput(true);
@@ -144,20 +158,57 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     }
   };
 
-  useEffect(() => {
-    if (!pendingExecutionRef.current) return;
-    if (isRunning) return;
+  const flushPendingExecution = (force = false) => {
+    const pending = pendingExecutionRef.current;
+    if (!pending) return;
 
-    const { codeSnapshot } = pendingExecutionRef.current;
+    if (!force && !pending.outputUpdated) return;
+
+    if (pending.flushTimer) {
+      clearTimeout(pending.flushTimer);
+      pending.flushTimer = null;
+    }
+
+    const pieces = [];
+    if (pending.stdout) pieces.push(pending.stdout);
+    if (pending.stderr) pieces.push(pending.stderr);
+    const finalOutput =
+      pieces.join(pieces.length === 2 ? '\n' : '') || "> Program executed (no output)";
+
     pendingExecutionRef.current = null;
+    logToBackend(pending.codeSnapshot, finalOutput);
+  };
 
-    const outputPieces = [];
-    if (stdout) outputPieces.push(stdout);
-    if (stderr) outputPieces.push(stderr);
-    const finalOutput = outputPieces.join(outputPieces.length === 2 ? '\n' : '') || "> Program executed (no output)";
+  useEffect(() => {
+    const pending = pendingExecutionRef.current;
+    if (!pending) return;
 
-    logToBackend(codeSnapshot, finalOutput);
-  }, [isRunning, stdout, stderr]);
+    if (isRunning) {
+      if (pending.flushTimer) {
+        clearTimeout(pending.flushTimer);
+        pending.flushTimer = null;
+      }
+      return;
+    }
+
+    if (pending.outputUpdated) {
+      flushPendingExecution();
+      return;
+    }
+
+    if (!pending.flushTimer) {
+      pending.flushTimer = setTimeout(() => {
+        flushPendingExecution(true);
+      }, 500);
+    }
+
+    return () => {
+      if (pending.flushTimer) {
+        clearTimeout(pending.flushTimer);
+        pending.flushTimer = null;
+      }
+    };
+  }, [isRunning]);
 
   return (
     <div className="editor-container">

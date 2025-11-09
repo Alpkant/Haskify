@@ -395,13 +395,14 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       components={{
         code({ node, inline, className, children, ...props }) {
           const match = /language-(\w+)/.exec(className || "");
-          if (!inline && match) {
-            const language = match[1];
+          const language = match?.[1] || (!inline ? "python" : undefined);
+
+          if (!inline) {
             const code = String(children).replace(/\n$/, "");
             return (
               <div className="code-block-container">
                 <SyntaxHighlighter
-                  language={language}
+                  language={language || "text"}
                   style={tomorrow}
                   customStyle={{
                     background: "#282c34",
