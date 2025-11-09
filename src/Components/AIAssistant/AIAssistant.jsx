@@ -396,9 +396,11 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         code({ node, inline, className, children, ...props }) {
           const match = /language-([\w-]+)/.exec(className || "");
           const rawLang = typeof node?.lang === 'string' ? node.lang.trim() : '';
-          const explicitLanguage = rawLang || match?.[1];
-          const isExplicitPython = explicitLanguage ? /^python\b/i.test(explicitLanguage) : false;
-          const language = explicitLanguage || (!inline ? "python" : undefined);
+          const langSource = rawLang || match?.[1] || '';
+          const normalizedLang = langSource.split(/\s+/)[0].toLowerCase();
+          const isExplicitPython = normalizedLang === 'python';
+          const syntaxLanguage = langSource ? normalizedLang : null;
+          const language = syntaxLanguage || 'text';
           const showApply = isExplicitPython;
 
           if (!inline) {
@@ -406,7 +408,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
             return (
               <div className="code-block-container">
                 <SyntaxHighlighter
-                  language={language || "text"}
+                  language={language}
                   style={tomorrow}
                   customStyle={{
                     background: "#282c34",
