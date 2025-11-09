@@ -23,42 +23,52 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   const fileInputRef = useRef(null); 
 
   // Helper to sync sessionId from sessionStorage before requests
-  const syncSessionId = async () => {
+  const syncSessionId = async ({ createIfMissing = true } = {}) => {
+    if (sessionIdRef.current) {
+      return sessionIdRef.current;
+    }
+
     let savedSessionId = sessionStorage.getItem('haskify_session');
+    if (savedSessionId) {
+      sessionIdRef.current = savedSessionId;
+      console.log('✓ [AIAssistant] Synced session from storage:', savedSessionId.substring(0, 8) + '...');
+      return savedSessionId;
+    }
     
-    // If no sessionId and we have userId, try to initialize
-    if (!savedSessionId) {
-      const savedUser = localStorage.getItem('haskify_user');
-      const userId = savedUser ? JSON.parse(savedUser).userId : null;
-      
-      if (userId) {
-        try {
-          const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
-          const initResponse = await fetch(`${API_BASE}/api/session/init`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
-          });
-          if (initResponse.ok) {
-            const initData = await initResponse.json();
-            if (initData.success && initData.sessionId) {
-              savedSessionId = initData.sessionId;
-              sessionStorage.setItem('haskify_session', savedSessionId);
-              sessionIdRef.current = savedSessionId;
-              console.log('✓ [AIAssistant] Initialized session:', savedSessionId.substring(0, 8) + '...');
-            }
-          }
-        } catch (initErr) {
-          console.error('Failed to initialize session:', initErr);
+    if (!createIfMissing) {
+      return null;
+    }
+
+    const savedUser = localStorage.getItem('haskify_user');
+    const userId = savedUser ? JSON.parse(savedUser).userId : null;
+
+    if (!userId) {
+      return null;
+    }
+    
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      const initResponse = await fetch(`${API_BASE}/api/session/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      if (initResponse.ok) {
+        const initData = await initResponse.json();
+        if (initData.success && initData.sessionId) {
+          savedSessionId = initData.sessionId;
+          sessionStorage.setItem('haskify_session', savedSessionId);
+          sessionIdRef.current = savedSessionId;
+          console.log('✓ [AIAssistant] Initialized session:', savedSessionId.substring(0, 8) + '...');
+          return savedSessionId;
         }
       }
+    } catch (initErr) {
+      console.error('Failed to initialize session:', initErr);
     }
-    
-    if (savedSessionId && savedSessionId !== sessionIdRef.current) {
-      sessionIdRef.current = savedSessionId;
-      console.log('�� [AIAssistant] Synced session from storage:', savedSessionId.substring(0, 8) + '...');
-    }
-    return sessionIdRef.current;
+
+    return null;
   };
 
   useEffect(() => {
@@ -143,12 +153,13 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
     try {
       const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      const sessionId = await syncSessionId({ createIfMissing: true });
       const res = await fetch(`${API_BASE}/api/quiz`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           chatHistory: sessionHistoryRef.current, 
-          sessionId: await syncSessionId()
+          sessionId
         }),
       });
       const quiz = await res.json();
@@ -188,11 +199,19 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     const savedUser = localStorage.getItem('haskify_user');
     const userId = savedUser ? JSON.parse(savedUser).userId : null;
 
+    const sessionId = await syncSessionId({ createIfMissing: true });
+
+    if (!sessionId) {
+      setUploadStatus('✗ Unable to attach files until a session is active.');
+      setTimeout(() => setUploadStatus(null), 3000);
+      return;
+    }
+
     for (const file of files) {
       try {
         const form = new FormData();
         form.append("file", file);
-        form.append("sessionId", await syncSessionId());
+        form.append("sessionId", sessionId);
         form.append("userId", userId);
 
         setUploadStatus(`Uploading ${file.name}...`);
@@ -260,6 +279,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const savedUser = localStorage.getItem('haskify_user');
       const userId = savedUser ? JSON.parse(savedUser).userId : null;
       
+      const existingSessionId = await syncSessionId({ createIfMissing: true });
       const response = await fetch(`${API_BASE}/ai/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -269,7 +289,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           output: sharedState.output,
           materialIds: materialIds.map((m) => m.id),
           userId, // Add this back
-          sessionId: await syncSessionId()
+          sessionId: existingSessionId
         }),
       });
 
@@ -277,7 +297,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const data = await response.json();
 
       // Handle sessionId from response
-      if (data.sessionId && !await syncSessionId()) {
+      if (!existingSessionId && data.sessionId) {
         sessionIdRef.current = data.sessionId;
         sessionStorage.setItem('haskify_session', data.sessionId);
         console.log('✓ [AIAssistant] Created and saved new session:', data.sessionId.substring(0, 8) + '...');
@@ -322,27 +342,29 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           const last = sessionHistoryRef.current.slice(-1)[0];
           if (last && last.response === null) last.response = responseText;
           const payload = { session: sessionHistoryRef.current };
-          // save or patch session
-          if (!await syncSessionId()) {
+          const activeSessionId = sessionIdRef.current || data.sessionId || existingSessionId;
+
+          if (!activeSessionId) {
             fetch(`${API_BASE}/api/save-session`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
             })
               .then((res) => res.json())
-              .then((data) => {
-                if (data.success && data.id) {
-                  sessionIdRef.current = data.id;
-                  sessionStorage.setItem('haskify_session', data.id);
-                  console.log('✓ [AIAssistant] Saved session:', data.id.substring(0, 8) + '...');
+              .then((result) => {
+                if (result.success && result.id) {
+                  sessionIdRef.current = result.id;
+                  sessionStorage.setItem('haskify_session', result.id);
+                  console.log('✓ [AIAssistant] Saved session:', result.id.substring(0, 8) + '...');
                 }
-              });
+              })
+              .catch((err) => console.error('Failed to persist session history:', err));
           } else {
-            fetch(`${API_BASE}/api/save-session/${await syncSessionId()}`, {
+            fetch(`${API_BASE}/api/save-session/${activeSessionId}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
-            });
+            }).catch((err) => console.error('Failed to update session history:', err));
           }
         }
       }, 15);
@@ -490,18 +512,33 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                         const userId = savedUser ? JSON.parse(savedUser).userId : null;
                         
                         try {
-                          await fetch(`${API_BASE}/api/log/quiz`, {
+                          const quizSessionId = await syncSessionId({ createIfMissing: true });
+                          const response = await fetch(`${API_BASE}/api/log/quiz`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                               userId: userId,
-                              sessionId: await syncSessionId(),
+                              sessionId: quizSessionId,
                               quizQuestion: question,
                               quizChoices: choices,
                               correctAnswer: correctIndex,
                               selectedAnswer: i
                             })
                           });
+
+                          if (!response.ok) {
+                            throw new Error(`Quiz log failed with status ${response.status}`);
+                          }
+                          
+                          if (!quizSessionId) {
+                            const result = await response.json();
+                            if (result?.sessionId) {
+                              sessionIdRef.current = result.sessionId;
+                              sessionStorage.setItem('haskify_session', result.sessionId);
+                              console.log('✓ [AIAssistant] Session assigned from quiz log:', result.sessionId.substring(0, 8) + '...');
+                            }
+                          }
+
                           console.log(`Quiz answer logged: ${i === correctIndex ? 'Correct' : 'Incorrect'}`);
                         } catch (error) {
                           console.error('Failed to log quiz answer:', error);
