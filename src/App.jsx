@@ -51,6 +51,21 @@ print("Welcome to Haskify! \\n Start coding now!")`,
             if (data.success) {
               setUser(userData);
               setIsAuthenticated(true);
+              
+              // Initialize or get active session
+              const sessionResponse = await fetch(`${API_BASE}/api/session/init`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userData.userId })
+              });
+              
+              if (sessionResponse.ok) {
+                const sessionData = await sessionResponse.json();
+                if (sessionData.success && sessionData.sessionId) {
+                  sessionStorage.setItem('haskify_session', sessionData.sessionId);
+                  console.log('✓ Session initialized:', sessionData.sessionId.substring(0, 8) + '...');
+                }
+              }
             } else {
               localStorage.removeItem('haskify_user');
             }
@@ -104,9 +119,29 @@ print("Welcome to Haskify! \\n Start coding now!")`,
     return () => clearInterval(iv);
   }, [loading, loadingMessages.length]);
 
-  const handleLogin = (userData) => {
+  const handleLogin = async (userData) => {
     setUser(userData);
     setIsAuthenticated(true);
+    
+    // Initialize session after login
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      const sessionResponse = await fetch(`${API_BASE}/api/session/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userData.userId })
+      });
+      
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        if (sessionData.success && sessionData.sessionId) {
+          sessionStorage.setItem('haskify_session', sessionData.sessionId);
+          console.log('✓ Session initialized on login:', sessionData.sessionId.substring(0, 8) + '...');
+        }
+      }
+    } catch (error) {
+      console.error('Session initialization failed:', error);
+    }
   };
 
   const handleLogout = () => {

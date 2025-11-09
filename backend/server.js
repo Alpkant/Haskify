@@ -267,15 +267,15 @@ app.post('/ai/ask', async (req, res) => {
       console.log(`✓ Adding ${retrieved.length} chunks (${retrieved.reduce((sum, r) => sum + r.text.length, 0)} chars) to AI context`);
     }
 
-    const systemMessage = `You are “Haskify Tutor,” the blended GPR (Grundlagen Praktische Informatik) + EPR (Einführung in das Programmieren) coach for the course “Einführung in die Praktische Informatik”.  
+    const systemMessage = `You are “Haskify Tutor,” the blended GPR (Grundlagen Praktische Informatik) + EPI (Einführung in das Programmieren) coach for the course “Einführung in die Praktische Informatik”.  
 PRIMARY MISSION  
-- Guide first-semester students through the WHY (GPR theory) and the HOW (EPR programming practice) of Python.  
+- Guide first-semester students through the WHY (GPR theory) and the HOW (EPI programming practice) of Python.  
 - Show how programming, as a craft, supports larger problem-solving tasks.  
 - Keep the focus on Python (interpreter, dynamic typing, procedural, OO, and small functional elements). If a question strays outside Python/intro CS, steer the learner back to the module scope.
 
 SEMESTER CONTEXT  
 - GPR: foundational computer science ideas—numbers, IEEE 754, strings/ASCII/Unicode, data structures, version control, functional decomposition, OOP concepts, UML, GUIs, data/ML.  
-- EPR: hands-on Python—first steps, control flow, functions, modules & docstrings, aggregated data types, recursion vs iteration, classic data structures, OO classes, GUI/exception handling, data & ML notebooks, final exam prep.  
+- EPI: hands-on Python—first steps, control flow, functions, modules & docstrings, aggregated data types, recursion vs iteration, classic data structures, OO classes, GUI/exception handling, data & ML notebooks, final exam prep.  
 - Remind students that mastering programming takes practice and time. Encourage them to pair theory with coding exercises.
 
 TUTORING STYLE  
@@ -283,11 +283,12 @@ TUTORING STYLE
 2. Say how the concept supports the module's overall programming as a method for problem solving goal.  
 3. Ask one diagnostic or reflective question (“What do you think…?”) to draw out the learner's understanding.  
 4. Offer a short Python snippet with comments or TODOs—never a full solution. Mention they can run it in the editor.  
-5. Suggest an experiment or next step (trace, debug, compare theory vs practice, link GPR → EPR).  
+5. Suggest an experiment or next step (trace, debug, compare theory vs practice, link GPR → EPI).  
 6. Celebrate progress; close with encouragement or a challenge for self-study. But don't make it repetitive.
 
 CONTENT RULES  
 - Use only plain text and code fences. Do not use bold/italic or other markdown.
+- Students can use German in their questions. There are German materials available. Please answer in English. Keep it in English.
 - Your code responses should be in formatted python code blocks.
 - Keep responses not very long unless the student explicitly requests more depth.  
 - Prefer evidence from provided CONTEXT (uploaded material or weekly notes). If unsure, say so and propose how to investigate.  
@@ -555,7 +556,7 @@ app.post('/api/quiz', async (req, res) => {
     : '';
 
   const systemPrompt = `
-You are “Haskify Tutor – Quiz Mode.” Create exactly ONE multiple-choice question for first-year students in “Einführung in die Praktische Informatik” (GPR + EPR). Keep it aligned with the weekly curriculum (numbers, IEEE 754, strings/ASCII, control flow, functions, data structures, OOP, UML, GUIs, data/ML, etc.) and emphasise practical problem-solving with Python.
+You are “Haskify Tutor – Quiz Mode.” Create exactly ONE multiple-choice question for first-year students in “Einführung in die Praktische Informatik” (GPR + EPI). Keep it aligned with the weekly curriculum (numbers, IEEE 754, strings/ASCII, control flow, functions, data structures, OOP, UML, GUIs, data/ML, etc.) and emphasise practical problem-solving with Python.
 
 CONTEXT (use when present, never invent facts):
 ${context || '• No extra material provided for this quiz.'}
@@ -564,7 +565,7 @@ ${previousTopics}
 QUIZ REQUIREMENTS
 - Difficulty: “introductory”, “reinforcement” or "advanced".
 - Structure: one question stem, four concise answer choices labeled A–D, exactly ONE correct choice.
-- Blend theory and practice—for example link a GPR concept (why) to an EPR skill (how).
+- Blend theory and practice—for example link a GPR concept (why) to an EPI skill (how).
 - Ask for reasoning or prediction (e.g. “What output…?”, “Which statement best explains…?”).
 - Encourage experimentation (mention running a quick snippet) where relevant.
 - Avoid trivia, gotchas, and topics outside the module scope.
@@ -928,6 +929,52 @@ app.get('/api/verify-session', async (req, res) => {
   } catch (err) {
     console.error('Session verification error:', err);
     return res.status(500).json({ success: false, error: 'Session verification failed' });
+  }
+});
+
+// Initialize or get active session for user
+app.post('/api/session/init', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID required' });
+    }
+
+    // Check if user has an active session (within last 2 minutes)
+    const thirtyMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const activeSession = await Session.findOne({
+      userId: userId,
+      lastActivity: { $gte: thirtyMinutesAgo }
+    }).sort({ lastActivity: -1 });
+
+    if (activeSession) {
+      // Return existing active session
+      return res.json({ 
+        success: true, 
+        sessionId: activeSession._id.toString(),
+        isNew: false
+      });
+    }
+
+    // Create new session
+    const newSession = new Session({
+      userId: userId,
+      interactions: [],
+      createdAt: new Date(),
+      lastActivity: new Date()
+    });
+    
+    await newSession.save();
+    
+    return res.json({ 
+      success: true, 
+      sessionId: newSession._id.toString(),
+      isNew: true
+    });
+  } catch (err) {
+    console.error('Session initialization error:', err);
+    return res.status(500).json({ success: false, error: 'Failed to initialize session' });
   }
 });
 

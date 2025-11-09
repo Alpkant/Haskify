@@ -94,14 +94,35 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       const savedUser = localStorage.getItem('haskify_user');
       const userId = savedUser ? JSON.parse(savedUser).userId : null;
       
-      const savedSessionId = sessionStorage.getItem('haskify_session');
+      // Always get sessionId from sessionStorage (should be initialized on app load)
+      let savedSessionId = sessionStorage.getItem('haskify_session');
+      
+      // If no sessionId exists, try to initialize one
+      if (!savedSessionId && userId) {
+        try {
+          const initResponse = await fetch(`${API_BASE}/api/session/init`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          if (initResponse.ok) {
+            const initData = await initResponse.json();
+            if (initData.success && initData.sessionId) {
+              savedSessionId = initData.sessionId;
+              sessionStorage.setItem('haskify_session', savedSessionId);
+            }
+          }
+        } catch (initErr) {
+          console.error('Failed to initialize session:', initErr);
+        }
+      }
       
       const response = await fetch(`${API_BASE}/api/log/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId, 
-          sessionId: savedSessionId,
+          sessionId: savedSessionId, // Always send sessionId (may be null if user not logged in)
           code: code,
           output: output
         })
@@ -110,9 +131,10 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       if (response.ok) {
         const logResult = await response.json();
         
-        if (logResult.sessionId && !savedSessionId) {
+        // Update sessionId if backend created a new one
+        if (logResult.sessionId && logResult.sessionId !== savedSessionId) {
           sessionStorage.setItem('haskify_session', logResult.sessionId);
-          console.log('✓ [PythonEditor] Created new session:', logResult.sessionId.substring(0, 8) + '...');
+          console.log('✓ [PythonEditor] Updated session:', logResult.sessionId.substring(0, 8) + '...');
         }
       }
     } catch (logErr) {

@@ -23,18 +23,47 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   const fileInputRef = useRef(null); 
 
   // Helper to sync sessionId from sessionStorage before requests
-  const syncSessionId = () => {
-    const savedSessionId = sessionStorage.getItem('haskify_session');
+  const syncSessionId = async () => {
+    let savedSessionId = sessionStorage.getItem('haskify_session');
+    
+    // If no sessionId and we have userId, try to initialize
+    if (!savedSessionId) {
+      const savedUser = localStorage.getItem('haskify_user');
+      const userId = savedUser ? JSON.parse(savedUser).userId : null;
+      
+      if (userId) {
+        try {
+          const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+          const initResponse = await fetch(`${API_BASE}/api/session/init`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+          });
+          if (initResponse.ok) {
+            const initData = await initResponse.json();
+            if (initData.success && initData.sessionId) {
+              savedSessionId = initData.sessionId;
+              sessionStorage.setItem('haskify_session', savedSessionId);
+              sessionIdRef.current = savedSessionId;
+              console.log('✓ [AIAssistant] Initialized session:', savedSessionId.substring(0, 8) + '...');
+            }
+          }
+        } catch (initErr) {
+          console.error('Failed to initialize session:', initErr);
+        }
+      }
+    }
+    
     if (savedSessionId && savedSessionId !== sessionIdRef.current) {
       sessionIdRef.current = savedSessionId;
-      console.log('🔄 [AIAssistant] Synced session from storage:', savedSessionId.substring(0, 8) + '...');
+      console.log('�� [AIAssistant] Synced session from storage:', savedSessionId.substring(0, 8) + '...');
     }
     return sessionIdRef.current;
   };
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify! Tell me which GPR/EPR topic you’re practicing. Numbers, loops, functions, OOP, data, ML—and we’ll work through it together.";
+      "Welcome to Haskify! Tell me which GPR/EPI topic you’re practicing. Numbers, loops, functions, OOP, data, ML—and we’ll work through it together.";
     let currentIndex = 0;
 
     setIsTyping(true);
@@ -119,7 +148,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           chatHistory: sessionHistoryRef.current, 
-          sessionId: syncSessionId()
+          sessionId: await syncSessionId()
         }),
       });
       const quiz = await res.json();
@@ -163,7 +192,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       try {
         const form = new FormData();
         form.append("file", file);
-        form.append("sessionId", syncSessionId());
+        form.append("sessionId", await syncSessionId());
         form.append("userId", userId);
 
         setUploadStatus(`Uploading ${file.name}...`);
@@ -240,7 +269,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           output: sharedState.output,
           materialIds: materialIds.map((m) => m.id),
           userId, // Add this back
-          sessionId: syncSessionId()
+          sessionId: await syncSessionId()
         }),
       });
 
@@ -248,7 +277,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const data = await response.json();
 
       // Handle sessionId from response
-      if (data.sessionId && !syncSessionId()) {
+      if (data.sessionId && !await syncSessionId()) {
         sessionIdRef.current = data.sessionId;
         sessionStorage.setItem('haskify_session', data.sessionId);
         console.log('✓ [AIAssistant] Created and saved new session:', data.sessionId.substring(0, 8) + '...');
@@ -294,7 +323,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           if (last && last.response === null) last.response = responseText;
           const payload = { session: sessionHistoryRef.current };
           // save or patch session
-          if (!syncSessionId()) {
+          if (!await syncSessionId()) {
             fetch(`${API_BASE}/api/save-session`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -309,7 +338,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                 }
               });
           } else {
-            fetch(`${API_BASE}/api/save-session/${syncSessionId()}`, {
+            fetch(`${API_BASE}/api/save-session/${await syncSessionId()}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
@@ -466,7 +495,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                               userId: userId,
-                              sessionId: syncSessionId(),
+                              sessionId: await syncSessionId(),
                               quizQuestion: question,
                               quizChoices: choices,
                               correctAnswer: correctIndex,
