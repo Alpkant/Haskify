@@ -36,6 +36,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
   const [showOutput, setShowOutput] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const inputRef = React.useRef(null);
+  const pendingExecutionRef = React.useRef(null);
 
   // Auto-focus input when awaiting
   useEffect(() => {
@@ -66,6 +67,9 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     }
 
     updateSharedState({ output: "> Running Python code..." });
+    pendingExecutionRef.current = {
+      codeSnapshot: code
+    };
     runPython(code);  // Just run it - react-py handles input() blocking
     setShowOutput(true);
   };
@@ -81,11 +85,9 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     sendInput(inputValue);
     setInputValue('');
     
-    // Log after a delay to capture final output
-    setTimeout(async () => {
-      const finalOutput = stdout || stderr || "> Program executed (no output)";
-      await logToBackend(sharedState.code, finalOutput);
-    }, 500);
+    if (pendingExecutionRef.current) {
+      pendingExecutionRef.current.codeSnapshot = sharedState.code;
+    }
   };
 
   const logToBackend = async (code, output) => {
@@ -141,6 +143,21 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       console.error('❌ Code execution log failed:', logErr);
     }
   };
+
+  useEffect(() => {
+    if (!pendingExecutionRef.current) return;
+    if (isRunning) return;
+
+    const { codeSnapshot } = pendingExecutionRef.current;
+    pendingExecutionRef.current = null;
+
+    const outputPieces = [];
+    if (stdout) outputPieces.push(stdout);
+    if (stderr) outputPieces.push(stderr);
+    const finalOutput = outputPieces.join(outputPieces.length === 2 ? '\n' : '') || "> Program executed (no output)";
+
+    logToBackend(codeSnapshot, finalOutput);
+  }, [isRunning, stdout, stderr]);
 
   return (
     <div className="editor-container">
