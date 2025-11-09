@@ -322,9 +322,8 @@ Always connect answers back to the semester goals and keep the student actively 
 
     // Clean up response artifacts
     responseText = responseText
-      .trim()
-      .replace(/^[:;,\.\-\s]+/, '')  // Remove leading : , . - etc
-      .replace(/\s+/g, ' ')          // Normalize multiple spaces
+      .replace(/^\s*[:;,\.\-]*/, '') // drop stray leading punctuation/spaces
+      .replace(/\r\n/g, '\n')        // normalise CRLF to LF
       .trim();
 
     // Fallback for empty responses
