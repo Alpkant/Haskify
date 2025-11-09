@@ -566,6 +566,7 @@ QUIZ REQUIREMENTS
 • Blend theory and practice—for example link a GPR concept (why) to an EPR skill (how).
 • Ask for reasoning or prediction (e.g. “What output…?”, “Which statement best explains…?”).
 • Encourage experimentation (mention running a quick snippet) where relevant.
+• If you show code during question, wrap it in triple-backtick fences using the language label python. You don't need the fences for choices.
 • Avoid trivia, gotchas, and topics outside the module scope.
 
 OUTPUT FORMAT
