@@ -308,7 +308,17 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
       setIsTyping(true);
       let currentIndex = 0;
-      const responseText = data.response;
+      let responseText = data.response;
+      // Clean up response artifacts (preserve markdown fences/newlines)
+      responseText = responseText
+        .replace(/\r\n/g, '\n')             // normalise Windows line endings
+        .replace(/\t/g, '    ')             // convert tabs to spaces
+        .replace(/^[:;,\.\-\s]+/, '')       // drop stray punctuation at the start
+        .split('\n')
+        .map((line) => line.replace(/[ \t]+$/g, '')) // trim trailing spaces per line
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')         // collapse 3+ blank lines to at most 2
+        .trim();
       setMessages((prev) => [
         ...prev,
         { sender: "OUR AI", text: "", isTyping: true },
@@ -418,9 +428,23 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
             }
           }
 
-          const showApply = isExplicitPython || inferredPython;
+          const trimmedCode = codeText.trim();
+          const isSingleWordBlock =
+            !inline &&
+            trimmedCode.length > 0 &&
+            !trimmedCode.includes('\n') &&
+            /^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmedCode);
+
+          const showApply = !isSingleWordBlock && (isExplicitPython || inferredPython);
 
           if (!inline) {
+            if (isSingleWordBlock) {
+              return (
+                <code className={className} {...props}>
+                  {trimmedCode}
+                </code>
+              );
+            }
             return (
               <div className="code-block-container">
                 <SyntaxHighlighter
