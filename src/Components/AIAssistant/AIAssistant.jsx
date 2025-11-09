@@ -399,12 +399,28 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           const langSource = rawLang || match?.[1] || '';
           const normalizedLang = langSource.split(/\s+/)[0].toLowerCase();
           const isExplicitPython = normalizedLang === 'python';
-          const syntaxLanguage = langSource ? normalizedLang : null;
-          const language = syntaxLanguage || 'text';
-          const showApply = isExplicitPython;
+
+          let codeText = String(children).replace(/\n$/, "");
+          let inferredPython = false;
+          let language = 'text';
 
           if (!inline) {
-            const code = String(children).replace(/\n$/, "");
+            if (isExplicitPython) {
+              language = 'python';
+            } else if (!langSource) {
+              const leadingMatch = codeText.match(/^[\t ]*python\b[^\S\r\n]*/i);
+              if (leadingMatch) {
+                const indexAfter = leadingMatch[0].length;
+                codeText = codeText.slice(0, leadingMatch.index || 0) + codeText.slice(indexAfter);
+                language = 'python';
+                inferredPython = true;
+              }
+            }
+          }
+
+          const showApply = isExplicitPython || inferredPython;
+
+          if (!inline) {
             return (
               <div className="code-block-container">
                 <SyntaxHighlighter
@@ -423,13 +439,13 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                   wrapLines
                   {...props}
                 >
-                  {code}
+                  {codeText}
                 </SyntaxHighlighter>
                 {showApply && (
                   <button
                     className="apply-code-button"
                     onClick={() =>
-                      updateSharedState({ code, changedLines: [] })
+                      updateSharedState({ code: codeText, changedLines: [] })
                     }
                   >
                     Apply Code
