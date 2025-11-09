@@ -394,8 +394,12 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       remarkPlugins={[remarkGfm]}
       components={{
         code({ node, inline, className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || "");
-          const language = match?.[1] || (!inline ? "python" : undefined);
+          const match = /language-([\w-]+)/.exec(className || "");
+          const rawLang = typeof node?.lang === 'string' ? node.lang.trim() : '';
+          const explicitLanguage = rawLang || match?.[1];
+          const isExplicitPython = explicitLanguage ? /^python\b/i.test(explicitLanguage) : false;
+          const language = explicitLanguage || (!inline ? "python" : undefined);
+          const showApply = isExplicitPython;
 
           if (!inline) {
             const code = String(children).replace(/\n$/, "");
@@ -419,7 +423,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                 >
                   {code}
                 </SyntaxHighlighter>
-                {language === "python" && (
+                {showApply && (
                   <button
                     className="apply-code-button"
                     onClick={() =>
