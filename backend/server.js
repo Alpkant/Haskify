@@ -322,8 +322,9 @@ Always connect answers back to the semester goals and keep the student actively 
 
     // Clean up response artifacts
     responseText = responseText
-      .replace(/^\s*[:;,\.\-]*/, '') // drop stray leading punctuation/spaces
-      .replace(/\r\n/g, '\n')        // normalise CRLF to LF
+      .trim()
+      .replace(/^[:;,\.\-\s]+/, '')
+      .replace(/\s+/g, ' ')
       .trim();
 
     // Fallback for empty responses
@@ -561,13 +562,12 @@ ${context || '• No extra material provided for this quiz.'}
 ${previousTopics}
 
 QUIZ REQUIREMENTS
-• Difficulty: “introductory”, “reinforcement” or "advanced".
-• Structure: one question stem, four concise answer choices labeled A–D, exactly ONE correct choice.
-• Blend theory and practice—for example link a GPR concept (why) to an EPR skill (how).
-• Ask for reasoning or prediction (e.g. “What output…?”, “Which statement best explains…?”).
-• Encourage experimentation (mention running a quick snippet) where relevant.
-• If you show code during question, wrap it in triple-backtick fences using the language label python. You don't need the fences for choices.
-• Avoid trivia, gotchas, and topics outside the module scope.
+- Difficulty: “introductory”, “reinforcement” or "advanced".
+- Structure: one question stem, four concise answer choices labeled A–D, exactly ONE correct choice.
+- Blend theory and practice—for example link a GPR concept (why) to an EPR skill (how).
+- Ask for reasoning or prediction (e.g. “What output…?”, “Which statement best explains…?”).
+- Encourage experimentation (mention running a quick snippet) where relevant.
+- Avoid trivia, gotchas, and topics outside the module scope.
 
 OUTPUT FORMAT
 Return a single JSON object with keys, NO EXPLANATION:
