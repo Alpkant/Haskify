@@ -944,9 +944,9 @@ app.post('/api/session/init', async (req, res) => {
     if (!userId) {
       return res.status(400).json({ success: false, error: 'User ID required' });
     }
- 
-    // Re-use active session if one exists (e.g. within the last 30 minutes)
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+    // Check if user has an active session (within last 2 minutes)
+    const thirtyMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     const activeSession = await Session.findOne({
       userId: userId,
       lastActivity: { $gte: thirtyMinutesAgo }
