@@ -309,15 +309,15 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       setIsTyping(true);
       let currentIndex = 0;
       let responseText = data.response;
-      // Clean up response artifacts (preserve markdown fences/newlines)
+      // Clean up response artifacts (preserve newlines/fences)
       responseText = responseText
-        .replace(/\r\n/g, '\n')             // normalise Windows line endings
-        .replace(/\t/g, '    ')             // convert tabs to spaces
-        .replace(/^[:;,\.\-\s]+/, '')       // drop stray punctuation at the start
+        .replace(/\r\n/g, '\n')               // normalise line endings
+        .replace(/\t/g, '    ')               // convert tabs to spaces
+        .replace(/^[:;,\.\-\s]+/, '')         // trim odd leading punctuation
         .split('\n')
-        .map((line) => line.replace(/[ \t]+$/g, '')) // trim trailing spaces per line
+        .map(line => line.replace(/[ \t]+$/g, '')) // trim trailing spaces per line
         .join('\n')
-        .replace(/\n{3,}/g, '\n\n')         // collapse 3+ blank lines to at most 2
+        .replace(/\n{3,}/g, '\n\n')           // collapse 3+ blank lines to 2
         .trim();
       setMessages((prev) => [
         ...prev,
