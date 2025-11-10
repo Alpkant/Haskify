@@ -879,8 +879,12 @@ app.post('/api/login', async (req, res) => {
 // Create user endpoint 
 app.post('/api/create-user', async (req, res) => {
   try {
-    const { userId } = req.body;
-    
+    const { userId, adminKey } = req.body;
+
+    if (adminKey !== process.env.ADMIN_KEY) {
+      return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+ 
     if (!userId || typeof userId !== 'string' || userId.trim() === '') {
       return res.status(400).json({ success: false, error: 'User ID is required' });
     }
@@ -964,29 +968,7 @@ app.post('/api/session/init', async (req, res) => {
   }
 });
 
-// Add this debug endpoint
-app.get('/api/debug-collection', async (req, res) => {
-  try {
-    const collectionName = User.collection.name;
-    const dbName = User.db.name;
-    console.log('Collection name:', collectionName);
-    console.log('Database name:', dbName);
-    
-    // Try to find the admin user
-    const adminUser = await User.findOne({ userId: 'admin' });
-    console.log('Admin user found:', adminUser);
-    
-    return res.json({ 
-      collectionName, 
-      dbName, 
-      adminUser,
-      totalUsers: await User.countDocuments()
-    });
-  } catch (err) {
-    console.error('Debug error:', err);
-    return res.status(500).json({ error: err.message });
-  }
-});
+
 
 app.post('/api/log/run', async (req, res) => {
   try {

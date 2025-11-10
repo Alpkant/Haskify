@@ -69,6 +69,13 @@
       <button type="submit">Upload System Material</button>
     </form>
 
+    <h2>Create User</h2>
+    <form id="createUserForm">
+      <input type="password" id="adminKeyUser" placeholder="Admin Key" required>
+      <input type="text" id="newUserId" placeholder="New User ID" required>
+      <button type="submit">Create User</button>
+    </form>
+
     <div id="status"></div>
 
     <h2>Current System Materials</h2>
@@ -127,6 +134,37 @@
       } catch (error) {
         console.error('Upload error:', error);
         showStatus(`✗ Network error: ${error.message}`, 'error');
+      }
+    });
+
+    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const adminKey = document.getElementById('adminKeyUser').value || document.getElementById('adminKey').value;
+      const userId = document.getElementById('newUserId').value.trim();
+
+      if (!userId) {
+        showStatus('User ID is required', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/create-user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adminKey, userId })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          showStatus(`✓ User "${data.user.userId}" created`, 'success');
+          e.target.reset();
+        } else {
+          showStatus(`✗ Error: ${data.error}`, 'error');
+        }
+      } catch (err) {
+        console.error('Create user error:', err);
+        showStatus(`✗ Network error: ${err.message}`, 'error');
       }
     });
 
