@@ -462,17 +462,8 @@ app.post('/api/contact', async (req, res) => {
 });
 
 app.post('/api/save-session', async (req, res) => {
-  try {
-    const { session } = req.body;
-    if (!Array.isArray(session) || session.length === 0) {
-      return res.status(400).json({ success: false, error: 'Session data required' });
-    }
-    const saved = await Session.create({ session });
-    return res.json({ success: true, id: saved._id });
-  } catch (err) {
-    console.error("Save session error:", err);
-    return res.status(500).json({ success: false, error: 'Failed to save session' });
-  }
+  // Legacy endpoint kept for backward compatibility — do nothing
+  return res.json({ success: true, skipped: true });
 });
 
 app.patch('/api/save-session/:id', async (req, res) => {
