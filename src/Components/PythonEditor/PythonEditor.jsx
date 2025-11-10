@@ -199,7 +199,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     if (!pending.flushTimer) {
       pending.flushTimer = setTimeout(() => {
         flushPendingExecution(true);
-      }, 500);
+      }, 1000);
     }
 
     return () => {

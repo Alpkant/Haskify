@@ -940,41 +940,32 @@ app.get('/api/verify-session', async (req, res) => {
 app.post('/api/session/init', async (req, res) => {
   try {
     const { userId } = req.body;
-    
+ 
     if (!userId) {
       return res.status(400).json({ success: false, error: 'User ID required' });
     }
-
-    // Check if user has an active session (within last 2 minutes)
-    const thirtyMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+ 
+    // Re-use active session if one exists (e.g. within the last 30 minutes)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
     const activeSession = await Session.findOne({
       userId: userId,
       lastActivity: { $gte: thirtyMinutesAgo }
     }).sort({ lastActivity: -1 });
-
+ 
     if (activeSession) {
       // Return existing active session
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         sessionId: activeSession._id.toString(),
         isNew: false
       });
     }
-
-    // Create new session
-    const newSession = new Session({
-      userId: userId,
-      interactions: [],
-      createdAt: new Date(),
-      lastActivity: new Date()
-    });
-    
-    await newSession.save();
-    
-    return res.json({ 
-      success: true, 
-      sessionId: newSession._id.toString(),
-      isNew: true
+ 
+    // No recent session: don't create an empty one yet
+    return res.json({
+      success: true,
+      sessionId: null,
+      isNew: false
     });
   } catch (err) {
     console.error('Session initialization error:', err);
