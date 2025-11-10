@@ -323,9 +323,13 @@ Always connect answers back to the semester goals and keep the student actively 
 
     // Clean up response artifacts
     responseText = responseText
-      .trim()
-      .replace(/^[:;,\.\-\s]+/, '')
-      .replace(/\s+/g, ' ')
+      .replace(/\r\n/g, '\n')               // normalise line endings
+      .replace(/\t/g, '    ')               // make tabs explicit
+      .replace(/^[:;,\.\-\s]+/, '')         // trim odd punctuation at the start
+      .split('\n')
+      .map(line => line.replace(/[ \t]+$/g, '')) // remove trailing spaces per line
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')           // cap blank-line runs at 2
       .trim();
 
     // Fallback for empty responses

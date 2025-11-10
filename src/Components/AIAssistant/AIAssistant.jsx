@@ -320,7 +320,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         .replace(/\n{3,}/g, '\n\n')           // collapse 3+ blank lines to 2
         .trim();
       setMessages((prev) => [
-        ...prev,
+        ...prev,  
         { sender: "OUR AI", text: "", isTyping: true },
       ]);
 
