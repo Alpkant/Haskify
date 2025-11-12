@@ -56,7 +56,7 @@ print("Welcome to Haskify! \\n Start coding now!")`,
               const sessionResponse = await fetch(`${API_BASE}/api/session/init`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: userData.userId })
+                body: JSON.stringify({ userId: userData.userId, createIfMissing: false })
               });
               
               if (sessionResponse.ok) {
@@ -129,7 +129,7 @@ print("Welcome to Haskify! \\n Start coding now!")`,
       const sessionResponse = await fetch(`${API_BASE}/api/session/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: userData.userId })
+        body: JSON.stringify({ userId: userData.userId, createIfMissing: true })
       });
       
       if (sessionResponse.ok) {

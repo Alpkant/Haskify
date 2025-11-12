@@ -51,7 +51,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const initResponse = await fetch(`${API_BASE}/api/session/init`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
+        body: JSON.stringify({ userId, createIfMissing: true })
       });
 
       if (initResponse.ok) {

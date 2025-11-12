@@ -37,6 +37,8 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
   const [inputValue, setInputValue] = useState('');
   const inputRef = React.useRef(null);
   const pendingExecutionRef = React.useRef(null);
+  const stdoutRef = React.useRef('');
+  const stderrRef = React.useRef('');
 
   // Auto-focus input when awaiting
   useEffect(() => {
@@ -47,26 +49,29 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
 
   // Update output whenever stdout/stderr changes
   useEffect(() => {
+    stdoutRef.current = stdout || '';
+    stderrRef.current = stderr || '';
+
     if (stdout || stderr) {
       let output = "";
-      if (stdout) output += stdout;
-      if (stderr) {
+      if (stdoutRef.current) output += stdoutRef.current;
+      if (stderrRef.current) {
         if (output) output += '\n';
-        output += stderr;
+        output += stderrRef.current;
       }
       updateSharedState({ output });
     }
     if (pendingExecutionRef.current) {
-      pendingExecutionRef.current.stdout = stdout || '';
-      pendingExecutionRef.current.stderr = stderr || '';
-      if (stdout || stderr) {
+      pendingExecutionRef.current.stdout = stdoutRef.current || '';
+      pendingExecutionRef.current.stderr = stderrRef.current || '';
+      if (stdoutRef.current || stderrRef.current) {
         pendingExecutionRef.current.outputUpdated = true;
         if (!isRunning) {
-          flushPendingExecution();
+          finalizePendingExecution();
         }
       }
     }
-  }, [stdout, stderr, isRunning]);
+  }, [stdout, stderr]);
 
   const handleRunCode = () => {
     const code = sharedState.code;
@@ -76,15 +81,17 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       return;
     }
 
+    stdoutRef.current = '';
+    stderrRef.current = '';
     updateSharedState({ output: "> Running Python code..." });
-    pendingExecutionRef.current = {
-      codeSnapshot: code,
-      stdout: '',
-      stderr: '',
-      outputUpdated: false,
-      flushTimer: null
-    };
-    runPython(code);  // Just run it - react-py handles input() blocking
+    pendingExecutionRef.current = { codeSnapshot: code };
+    runPython(code)
+      .catch((err) => {
+        console.error('Python execution error:', err);
+      })
+      .finally(() => {
+        setTimeout(finalizePendingExecution, 50);
+      });
     setShowOutput(true);
   };
 
@@ -119,7 +126,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
           const initResponse = await fetch(`${API_BASE}/api/session/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId })
+            body: JSON.stringify({ userId: userId, createIfMissing: false })
           });
           if (initResponse.ok) {
             const initData = await initResponse.json();
@@ -158,24 +165,20 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     }
   };
 
-  const flushPendingExecution = (force = false) => {
+  const finalizePendingExecution = () => {
     const pending = pendingExecutionRef.current;
     if (!pending) return;
 
-    if (!force && !pending.outputUpdated) return;
-
-    if (pending.flushTimer) {
-      clearTimeout(pending.flushTimer);
-      pending.flushTimer = null;
-    }
+    pendingExecutionRef.current = null;
 
     const pieces = [];
-    if (pending.stdout) pieces.push(pending.stdout);
-    if (pending.stderr) pieces.push(pending.stderr);
-    const finalOutput =
-      pieces.join(pieces.length === 2 ? '\n' : '') || "> Program executed (no output)";
+    if (stdoutRef.current) pieces.push(stdoutRef.current.trimEnd());
+    if (stderrRef.current) pieces.push(stderrRef.current.trimEnd());
 
-    pendingExecutionRef.current = null;
+    const finalOutput =
+      pieces.join(pieces.length === 2 ? '\n' : '') ||
+      '> Program executed (no output)';
+
     logToBackend(pending.codeSnapshot, finalOutput);
   };
 
@@ -192,13 +195,13 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     }
 
     if (pending.outputUpdated) {
-      flushPendingExecution();
+      finalizePendingExecution();
       return;
     }
 
     if (!pending.flushTimer) {
       pending.flushTimer = setTimeout(() => {
-        flushPendingExecution(true);
+        finalizePendingExecution();
       }, 1000);
     }
 
