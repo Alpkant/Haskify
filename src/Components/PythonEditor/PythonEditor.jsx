@@ -84,14 +84,16 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     stdoutRef.current = '';
     stderrRef.current = '';
     updateSharedState({ output: "> Running Python code..." });
-    pendingExecutionRef.current = { codeSnapshot: code };
-    runPython(code)
-      .catch((err) => {
-        console.error('Python execution error:', err);
-      })
-      .finally(() => {
-        setTimeout(finalizePendingExecution, 50);
-      });
+    pendingExecutionRef.current = {
+      codeSnapshot: code,
+      outputUpdated: false,
+      flushTimer: null,
+      stdout: '',
+      stderr: ''
+    };
+    runPython(code).catch((err) => {
+      console.error('Python execution error:', err);
+    });
     setShowOutput(true);
   };
 
@@ -99,6 +101,9 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     interruptExecution();
     setShowOutput(false);
     updateSharedState({ output: "> Execution interrupted" });
+    const pending = pendingExecutionRef.current;
+    if (pending?.flushTimer) clearTimeout(pending.flushTimer);
+    pendingExecutionRef.current = null;
   };
 
   const handleInputSubmit = (e) => {
@@ -169,6 +174,10 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     const pending = pendingExecutionRef.current;
     if (!pending) return;
 
+    if (pending.flushTimer) {
+      clearTimeout(pending.flushTimer);
+      pending.flushTimer = null;
+    }
     pendingExecutionRef.current = null;
 
     const pieces = [];
@@ -202,7 +211,7 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
     if (!pending.flushTimer) {
       pending.flushTimer = setTimeout(() => {
         finalizePendingExecution();
-      }, 1000);
+      }, 300);
     }
 
     return () => {
