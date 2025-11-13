@@ -305,12 +305,23 @@ ${output ? `Most recent output:\n\`\`\`\n${output}\n\`\`\`` : ''}
 ${contextBlock}
 Always connect answers back to the semester goals and keep the student actively learning.`;
 
+    const workspaceMessage = [
+      'CURRENT WORKSPACE:',
+      code && code.trim().length
+        ? `\`\`\`python\n${code}\n\`\`\``
+        : '# Student has not written code yet.',
+      output && output.trim().length
+        ? `Most recent output:\n\`\`\`\n${output}\n\`\`\``
+        : null,
+      `STUDENT QUESTION:\n${query}`
+    ].filter(Boolean).join('\n\n');
+
     const stream = await openrouter.chat.completions.create({
       model: "google/gemma-3-27b-it:free",
       messages: [
         { role: "system", content: systemMessage },
         ...exampleConversations,
-        { role: "user", content: query }
+        { role: "user", content: workspaceMessage }
       ],
       stream: true,
       temperature: 0.35
