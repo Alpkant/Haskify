@@ -188,6 +188,10 @@ export default function PythonEditor({ sharedState, updateSharedState }) {
       pieces.join(pieces.length === 2 ? '\n' : '') ||
       '> Program executed (no output)';
 
+    if (!stdoutRef.current && !stderrRef.current) {
+      updateSharedState({ output: finalOutput });
+    }
+
     logToBackend(pending.codeSnapshot, finalOutput);
   };
 
