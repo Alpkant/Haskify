@@ -1,33 +1,34 @@
 # Haskify 🚀
 
 <div align="center">
-  <img src="https://github.com/Ahmadkhdeir/haskify/blob/main/demo.gif?raw=true" width="600" alt="Haskify Demo"/>
+  <img src="https://github.com/Alpkant/haskify/blob/main/demo.gif?raw=true" width="600" alt="Haskify Demo"/>
   <br/>
-  <em>An interactive web application for learning Haskell with AI-powered assistance</em>
+  <em>An interactive web application for learning Python and programming with AI-powered assistance</em>
 </div>
+
+Haskify is a Python-first practice studio. It pairs a live Pyodide-backed editor, contextual AI help, quiz drills, and session logging so students can run code, ask follow-up questions, and keep their progress synced across visits.
 
 ## 📖 Overview
 
-Haskify is a modern web application designed to make learning Haskell fun and interactive. It combines a powerful code editor with an AI assistant to provide a comprehensive learning experience for functional programming enthusiasts.
+Haskify is a modern web application designed to make learning Python and programming fun and interactive. It combines a powerful code editor with an AI assistant to provide a comprehensive learning experience for students.
 
 ### ✨ Key Features
 
-- **🖥️ Interactive Haskell Editor**: Write, compile, and run Haskell code directly in your browser
-- **🤖 AI Assistant**: Get intelligent help and explanations for your Haskell code
-- **📄 PDF Viewer**: Upload and view learning materials alongside your coding workspace
-- **💬 Real-time Code Execution**: See your code output instantly with error handling
-- **🎨 Modern UI**: Clean, responsive design built with React and Tailwind CSS
-- **🔧 Full-stack Architecture**: Robust backend with Express.js and MongoDB integration
+- `Live Python editor` (react-py, interrupt button, input support).
+- `AI assistant with workspace context` (code/output automatically streamed, RAG on uploaded materials).
+- `Quiz generator + answer logging`.
+- `Session timeline` (interactions stored in Mongo, resume on reload).
+- `Admin console` (upload system materials, create users, view status).
+- Optional: `Anonymous sessions` auto-create on first interaction.
 
 ## 🏗️ Architecture
 
 Haskify is built with a modern full-stack architecture:
 
-- **Frontend**: React 19 with Vite, Tailwind CSS, Monaco Editor
-- **Backend**: Node.js with Express.js
-- **AI Integration**: DeepSeek API for intelligent code assistance
-- **Database**: MongoDB for data persistence
-- **Code Execution**: GHC (Glasgow Haskell Compiler) integration
+- Frontend: React + Vite + Ace editor + react-py.
+- Backend: Express, MongoDB, OpenAI API compatability for AI chat connection with local or global models, OpenAI embeddings.
+- Execution: Pyodide (no GHC).
+- Security bits (COOP/COEP, admin key, rate limiting).
 
 ## 🚀 Getting Started
 
@@ -61,9 +62,13 @@ Haskify is built with a modern full-stack architecture:
 4. **Set up environment variables**:
    Create a `.env` file in the backend directory:
    ```env
-   OPENAI_API_KEY=your_deepseek_api_key_here
+   OPENROUTER_API_KEY=your_aimodel_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
    MONGODB_URI=your_mongodb_connection_string
    PORT=5001
+   VITE_API_URL=http://localhost:5001
+   ADMIN_KEY=your_admin_key_here
+   ORIGIN_WHITELIST=http://localhost:5173
    ```
 
 5. **Start the development servers**:
@@ -84,21 +89,21 @@ Haskify is built with a modern full-stack architecture:
 
 ## 🎯 Usage
 
-### Writing Haskell Code
+### Writing Python Code
 
-1. Use the **Code Editor** panel to write your Haskell functions
-2. Click the **Run** button to compile and execute your code
+1. Use the **Code Editor** panel to write your Python code
+2. Click the **Run** button to execute your code
 3. View the output in the **Output** panel
 4. For interactive programs, use the **Input** field to provide user input
 
 ### Getting AI Assistance
 
 1. Type your questions in the **AI Assistant** panel
-2. The AI will analyze your current code and provide helpful responses
+2. The AI will analyze your current code, system materials and provide helpful responses
 3. Ask about:
    - Code explanations
    - Debugging help
-   - Haskell concepts (monads, functors, etc.)
+   - Python and programming concepts
    - Best practices and patterns
 
 ### Working with Learning Materials
@@ -106,6 +111,8 @@ Haskify is built with a modern full-stack architecture:
 1. Upload PDF documents using the upload button
 2. View materials in the PDF viewer
 3. Reference materials while coding
+4. You can upload system materials using admin-panel.html
+5. AI also references system materials
 
 ## 🛠️ Development
 
@@ -140,21 +147,31 @@ haskify/
 
 ### API Endpoints
 
-- `POST /execute` - Execute Haskell code
-- `POST /ai/ask` - Get AI assistance
-- `POST /upload` - Upload PDF materials
-- `GET /health` - Health check endpoint
+- `POST /ai/ask`
+- `POST /run-python`
+- `POST /api/log/run`
+- `POST /api/log/quiz`
+- `POST /api/upload-material`
+- `POST /api/session/init`
+- `POST /api/create-user` (admin key)
+- `POST /api/admin/create-user`
+- `POST /api/admin/upload-system-material`
+- `GET /api/admin/system-materials`
+- `POST /api/cleanup-session/:sessionId`
+- `GET /health`
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `OPENAI_API_KEY` | DeepSeek API key for AI features | Required |
-| `MONGODB_URI` | MongoDB connection string | Optional |
-| `PORT` | Backend server port | 5001 |
-| `VITE_API_URL` | Frontend API base URL | http://localhost:5001 |
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `OPENROUTER_API_KEY` | Chat completions (Gemma 3 27B) | Required |
+| `OPENAI_API_KEY` | Embeddings | Required |
+| `MONGODB_URI` | Session storage | Required |
+| `ADMIN_KEY` | Admin panel auth | Required |
+| `PORT` / `VITE_API_URL` | Server + client URL | Required |
+| `ORIGIN_WHITELIST` (if you add stricter CORS) | |
 
 ### Customization
 
@@ -184,7 +201,7 @@ We welcome contributions! Please follow these steps:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
-
+- **Ahmadkhedeir** - This repo is based on his Haskell version of Haskify. The base interaction and design created by him.
 - **Goethe University Frankfurt** - Academic support and resources
 - **Monaco Editor** - Powerful code editing capabilities
 - **DeepSeek** - AI language model integration
@@ -192,12 +209,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/Ahmadkhdeir/haskify/issues)
+- **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/Alpkant/haskify/issues)
 - **Documentation**: Check the [docs/](docs/) folder for detailed guides
 - **Contact**: Reach out through the contact modal in the application
 
 ---
 
 <div align="center">
-  <strong>Happy Haskelling! 🎉</strong>
+  <strong>Happy coding! 🎉</strong>
 </div>
