@@ -42,7 +42,7 @@ Haskify is built with a modern full-stack architecture:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Ahmadkhdeir/haskify.git
+   git clone https://github.com/Alpkant/haskify.git
    cd haskify
    ```
 
@@ -200,7 +200,7 @@ We welcome contributions! Please follow these steps:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
-- **Ahmadkhedeir** - This repo is based on his Haskell version of Haskify. The base interaction and design created by him.
+- [**Ahmadkhedeir**](http://github.com/Ahmadkhdeir/haskify) - This repo is based on his Haskell version of Haskify. The base interaction and design created by him.
 - **Goethe University Frankfurt** - Academic support and resources
 - **Monaco Editor** - Powerful code editing capabilities
 - **DeepSeek** - AI language model integration
