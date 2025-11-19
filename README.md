@@ -27,7 +27,7 @@ Haskify is built with a modern full-stack architecture:
 
 - Frontend: React + Vite + Ace editor + react-py.
 - Backend: Express, MongoDB, OpenAI API compatability for AI chat connection with local or global models, OpenAI embeddings.
-- Execution: Pyodide (no GHC).
+- Execution: Pyodide/React-Py
 - Security bits (COOP/COEP, admin key, rate limiting).
 
 ## 🚀 Getting Started
@@ -36,7 +36,6 @@ Haskify is built with a modern full-stack architecture:
 
 - Node.js (v18 or higher)
 - npm or yarn
-- GHC (Glasgow Haskell Compiler) - for code execution
 - MongoDB (optional, for advanced features)
 
 ### Installation
