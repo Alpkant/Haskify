@@ -1200,9 +1200,9 @@ async function retrieveRelevantChunks(query, sessionId, k = 6) {
     const results = scoredChunks
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, k)
-      .filter(c => c.similarity > 0.4); 
+      .filter(c => c.similarity > 0.3); 
     
-    console.log(`Returning ${results.length} relevant chunks (threshold: 0.4)`);
+    console.log(`Returning ${results.length} relevant chunks (threshold: 0.3)`);
     
     return results;
   } catch (error) {
