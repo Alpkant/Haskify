@@ -21,7 +21,8 @@ function App() {
   const [showUploadButton, setShowUploadButton] = useState(false);
   const [sharedState, setSharedState] = useState({
     code: `# Your Python code here
-print("Welcome to Haskify! \\n Start coding now!")`,
+# Your Python code here
+print("Welcome to Haskify!", "Start coding now!" , sep="\n")`,
     output: "> Ready to run Python code"
   });
   const [isContactOpen, setContactOpen] = useState(false);
