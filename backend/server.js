@@ -61,11 +61,14 @@ function topKChunks(chunks, query, k = 6) {
   return scored.sort((a,b) => b.score - a.score).slice(0, k).filter(c => c.score > 0);
 }
 
-// OpenRouter client for text generation (chat completions)
-const openrouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
+// LiteLLM client for text generation (chat completions)
+const chatClient = new OpenAI({
+  apiKey: process.env.GOETHE_API_KEY,
+  baseURL: "https://litellm.s.studiumdigitale.uni-frankfurt.de/v1/",
 });
+
+const MAIN_MODEL = "qwen2.5-coder-32b-instruct";
+const FALLBACK_MODEL = "internvl2.5-8b";
 
 // OpenAI client for embeddings (must use real OpenAI API)
 const openai = new OpenAI({
@@ -316,16 +319,30 @@ Always connect answers back to the semester goals and keep the student actively 
       `STUDENT QUESTION:\n${query}`
     ].filter(Boolean).join('\n\n');
 
-    const stream = await openrouter.chat.completions.create({
-      model: "google/gemma-3-27b-it:free",
-      messages: [
-        { role: "system", content: systemMessage },
-        ...exampleConversations,
-        { role: "user", content: workspaceMessage }
-      ],
+    let stream;
+    const messages = [
+      { role: "system", content: systemMessage },
+      ...exampleConversations,
+      { role: "user", content: workspaceMessage }
+    ];
+    const completionParams = {
+      messages,
       stream: true,
       temperature: 0.35
-    });
+    };
+
+    try {
+      stream = await chatClient.chat.completions.create({
+        model: MAIN_MODEL,
+        ...completionParams
+      });
+    } catch (err) {
+      console.warn(`Main model (${MAIN_MODEL}) failed, switching to fallback (${FALLBACK_MODEL}):`, err.message);
+      stream = await chatClient.chat.completions.create({
+        model: FALLBACK_MODEL,
+        ...completionParams
+      });
+    }
 
     let responseText = "";
     for await (const chunk of stream) {
@@ -593,14 +610,27 @@ Return ONLY that JSON (no markdown fences, no prose).`.trim();
     let quiz;
 
     while (attempts < 5) { // Increased from 3 to 5 attempts
-      const completion = await openrouter.chat.completions.create({
-        model: "google/gemma-3-27b-it:free",
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Generate the JSON quiz object described above. Recent chat: ${JSON.stringify(chatHistory.slice(-3))}` }
-        ],
-        temperature: 1.2 + (attempts * 0.1) // Increase temperature with each attempt
-      });
+      let completion;
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Generate the JSON quiz object described above. Recent chat: ${JSON.stringify(chatHistory.slice(-3))}` }
+      ];
+      const temperature = 1.2 + (attempts * 0.1);
+
+      try {
+        completion = await chatClient.chat.completions.create({
+          model: MAIN_MODEL,
+          messages,
+          temperature
+        });
+      } catch (err) {
+        console.warn(`Main model (${MAIN_MODEL}) failed for quiz, switching to fallback (${FALLBACK_MODEL}):`, err.message);
+        completion = await chatClient.chat.completions.create({
+          model: FALLBACK_MODEL,
+          messages,
+          temperature
+        });
+      }
 
       let text = completion.choices[0].message.content.trim();
       if (text.startsWith('```')) {
