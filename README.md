@@ -27,7 +27,7 @@ Haskify is built with a modern full-stack architecture:
 
 - Frontend: React + Vite + Ace editor + react-py.
 - Backend: Express, MongoDB, OpenAI API compatability for AI chat connection with local or global models, OpenAI embeddings.
-- Execution: Pyodide (no GHC).
+- Execution: Pyodide/React-Py
 - Security bits (COOP/COEP, admin key, rate limiting).
 
 ## 🚀 Getting Started
@@ -36,14 +36,13 @@ Haskify is built with a modern full-stack architecture:
 
 - Node.js (v18 or higher)
 - npm or yarn
-- GHC (Glasgow Haskell Compiler) - for code execution
 - MongoDB (optional, for advanced features)
 
 ### Installation
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Ahmadkhdeir/haskify.git
+   git clone https://github.com/Alpkant/haskify.git
    cd haskify
    ```
 
@@ -201,7 +200,7 @@ We welcome contributions! Please follow these steps:
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
-- **Ahmadkhedeir** - This repo is based on his Haskell version of Haskify. The base interaction and design created by him.
+- [**Ahmadkhedeir**](http://github.com/Ahmadkhdeir/haskify) - This repo is based on his Haskell version of Haskify. The base interaction and design created by him.
 - **Goethe University Frankfurt** - Academic support and resources
 - **Monaco Editor** - Powerful code editing capabilities
 - **DeepSeek** - AI language model integration
