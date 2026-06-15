@@ -76,7 +76,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify! Tell me which GPR/EPI topic you're practicing. Numbers, loops, functions, OOP, data, ML—and we'll work through it together.";
+      "Welcome to Haskify! Ask about Python, your Jupyter notebook, or basic machine learning—data, plots, models, and errors. We'll work through it step by step.";
 
     setMessages([
       {
