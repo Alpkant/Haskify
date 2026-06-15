@@ -67,7 +67,7 @@ const chatClient = new OpenAI({
   baseURL: "https://litellm.s.studiumdigitale.uni-frankfurt.de/v1/",
 });
 
-const MAIN_MODEL = "mistral-large-3-675b-instruct-2512";
+const MAIN_MODEL = "gemma-4-31b-it";
 const FALLBACK_MODEL = "gemma3:12b";
 
 // OpenAI client for embeddings (must use real OpenAI API)
