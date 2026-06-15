@@ -17,7 +17,10 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   const [materialIds, setMaterialIds] = useState([]); 
   const [uploadStatus, setUploadStatus] = useState(null); 
   const messagesEndRef = useRef(null);
-  const typingIntervalRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const shouldAutoScrollRef = useRef(true);
+  const streamUpdateFrameRef = useRef(null);
+  const pendingStreamTextRef = useRef("");
   const sessionHistoryRef = useRef([]);
   const sessionIdRef = useRef(null);
   const fileInputRef = useRef(null); 
@@ -73,41 +76,20 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify! Tell me which GPR/EPI topic you’re practicing. Numbers, loops, functions, OOP, data, ML—and we’ll work through it together.";
-    let currentIndex = 0;
+      "Welcome to Haskify! Tell me which GPR/EPI topic you're practicing. Numbers, loops, functions, OOP, data, ML—and we'll work through it together.";
 
-    setIsTyping(true);
-    setMessages([{ sender: "OUR AI", text: "", isTyping: true }]);
-
-    typingIntervalRef.current = setInterval(() => {
-      if (currentIndex < initialMessage.length) {
-        setMessages([
-          {
-            sender: "OUR AI",
-            text: initialMessage.substring(0, currentIndex + 1),
-            isTyping: true,
-          },
-        ]);
-        currentIndex++;
-      } else {
-        clearInterval(typingIntervalRef.current);
-        setMessages([
-          {
-            sender: "OUR AI",
-            text: initialMessage,
-            isTyping: false,
-          },
-        ]);
-        setIsTyping(false);
-        sessionHistoryRef.current.push({
-          question: null,
-          response: initialMessage,
-          time: new Date().toISOString(),
-        });
-      }
-    }, 15);
-
-    return () => clearInterval(typingIntervalRef.current);
+    setMessages([
+      {
+        sender: "OUR AI",
+        text: initialMessage,
+        isTyping: false,
+      },
+    ]);
+    sessionHistoryRef.current.push({
+      question: null,
+      response: initialMessage,
+      time: new Date().toISOString(),
+    });
   }, []);
 
   // Load or keep sessionId from sessionStorage on mount
@@ -122,9 +104,31 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   }, []);
 
 
+  const scrollToBottomIfNeeded = () => {
+    const container = chatContainerRef.current;
+    if (!container || !shouldAutoScrollRef.current) return;
+    container.scrollTop = container.scrollHeight;
+  };
+
+  const handleChatScroll = () => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottomIfNeeded();
   }, [messages, uploadStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (streamUpdateFrameRef.current) {
+        cancelAnimationFrame(streamUpdateFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -271,6 +275,122 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     setIsLoading(false);
   };
 
+  const persistSessionHistory = (responseText, dataSessionId, existingSessionId) => {
+    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+    const payload = { session: sessionHistoryRef.current };
+    const activeSessionId = sessionIdRef.current || dataSessionId || existingSessionId;
+
+    if (!activeSessionId) {
+      fetch(`${API_BASE}/api/save-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.success && result.id) {
+            sessionIdRef.current = result.id;
+            sessionStorage.setItem('haskify_session', result.id);
+          }
+        })
+        .catch((err) => console.error('Failed to persist session history:', err));
+      return;
+    }
+
+    fetch(`${API_BASE}/api/save-session/${activeSessionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).catch((err) => console.error('Failed to update session history:', err));
+  };
+
+  const scheduleStreamUpdate = () => {
+    if (streamUpdateFrameRef.current) return;
+    streamUpdateFrameRef.current = requestAnimationFrame(() => {
+      streamUpdateFrameRef.current = null;
+      const nextText = pendingStreamTextRef.current;
+      setMessages((prev) => {
+        const base = prev.slice(0, -1);
+        return [
+          ...base,
+          {
+            sender: "OUR AI",
+            text: nextText,
+            isStreaming: true,
+          },
+        ];
+      });
+      scrollToBottomIfNeeded();
+    });
+  };
+
+  const consumeAiStream = async (response) => {
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("Streaming is not supported in this browser");
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let responseText = "";
+    let resolvedSessionId;
+
+    setMessages((prev) => prev.filter((msg) => !msg.isLoading));
+    setIsTyping(true);
+    setMessages((prev) => [
+      ...prev,
+      { sender: "OUR AI", text: "", isStreaming: true },
+    ]);
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() || "";
+
+      for (const event of events) {
+        const line = event
+          .split('\n')
+          .find((entry) => entry.startsWith('data: '));
+        if (!line) continue;
+
+        const data = JSON.parse(line.slice(6));
+        if (data.delta) {
+          responseText += data.delta;
+          pendingStreamTextRef.current = responseText;
+          scheduleStreamUpdate();
+        }
+        if (data.done) {
+          if (data.response) {
+            responseText = data.response;
+          }
+          if (data.sessionId) {
+            resolvedSessionId = data.sessionId;
+          }
+        }
+      }
+    }
+
+    if (streamUpdateFrameRef.current) {
+      cancelAnimationFrame(streamUpdateFrameRef.current);
+      streamUpdateFrameRef.current = null;
+    }
+
+    pendingStreamTextRef.current = responseText;
+    setMessages((prev) => {
+      const base = prev.slice(0, -1);
+      return [
+        ...base,
+        { sender: "OUR AI", text: responseText, isStreaming: false },
+      ];
+    });
+    setIsTyping(false);
+
+    return { responseText, sessionId: resolvedSessionId };
+  };
+
   const sendToBackend = async (query) => {
     try {
       const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
@@ -288,100 +408,49 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           code: sharedState.code,
           output: sharedState.output,
           materialIds: materialIds.map((m) => m.id),
-          userId, // Add this back
-          sessionId: existingSessionId
+          userId,
+          sessionId: existingSessionId,
+          stream: true,
         }),
       });
 
       if (!response.ok) throw new Error("Network response was not ok");
-      const data = await response.json();
 
-      // Handle sessionId from response
-      if (!existingSessionId && data.sessionId) {
-        sessionIdRef.current = data.sessionId;
-        sessionStorage.setItem('haskify_session', data.sessionId);
-        console.log('✓ [AIAssistant] Created and saved new session:', data.sessionId.substring(0, 8) + '...');
+      const contentType = response.headers.get("content-type") || "";
+      let responseText;
+      let dataSessionId;
+
+      if (contentType.includes("text/event-stream")) {
+        const streamResult = await consumeAiStream(response);
+        responseText = streamResult.responseText;
+        dataSessionId = streamResult.sessionId;
+      } else {
+        const data = await response.json();
+        responseText = data.response;
+        dataSessionId = data.sessionId;
+        setMessages((prev) => prev.filter((msg) => !msg.isLoading));
+        setMessages((prev) => [
+          ...prev,
+          { sender: "OUR AI", text: responseText, isStreaming: false },
+        ]);
       }
 
-      // remove loading bubble
-      setMessages((prev) => prev.filter((msg) => !msg.isLoading));
+      if (!existingSessionId && dataSessionId) {
+        sessionIdRef.current = dataSessionId;
+        sessionStorage.setItem('haskify_session', dataSessionId);
+      }
 
-      setIsTyping(true);
-      let currentIndex = 0;
-      let responseText = data.response;
-      // Clean up response artifacts (preserve newlines/fences)
-      responseText = responseText
-        .replace(/\r\n/g, '\n')               // normalise line endings
-        .replace(/\t/g, '    ')               // convert tabs to spaces
-        .replace(/^[:;,\.\-\s]+/, '')         // trim odd leading punctuation
-        .split('\n')
-        .map(line => line.replace(/[ \t]+$/g, '')) // trim trailing spaces per line
-        .join('\n')
-        .replace(/\n{3,}/g, '\n\n')           // collapse 3+ blank lines to 2
-        .trim();
-      setMessages((prev) => [
-        ...prev,  
-        { sender: "OUR AI", text: "", isTyping: true },
-      ]);
-
-      typingIntervalRef.current = setInterval(() => {
-        if (currentIndex < responseText.length) {
-          setMessages((prev) => {
-            const base = prev.slice(0, -1);
-            return [
-              ...base,
-              {
-                sender: "OUR AI",
-                text: responseText.substring(0, currentIndex + 1),
-                isTyping: true,
-              },
-            ];
-          });
-          currentIndex++;
-        } else {
-          clearInterval(typingIntervalRef.current);
-          setMessages((prev) => {
-            const base = prev.slice(0, -1);
-            return [
-              ...base,
-              { sender: "OUR AI", text: responseText, isTyping: false },
-            ];
-          });
-          setIsTyping(false);
-          // update session history
-          const last = sessionHistoryRef.current.slice(-1)[0];
-          if (last && last.response === null) last.response = responseText;
-          const payload = { session: sessionHistoryRef.current };
-          const activeSessionId = sessionIdRef.current || data.sessionId || existingSessionId;
-
-          if (!activeSessionId) {
-            fetch(`${API_BASE}/api/save-session`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            })
-              .then((res) => res.json())
-              .then((result) => {
-                if (result.success && result.id) {
-                  sessionIdRef.current = result.id;
-                  sessionStorage.setItem('haskify_session', result.id);
-                  console.log('✓ [AIAssistant] Saved session:', result.id.substring(0, 8) + '...');
-                }
-              })
-              .catch((err) => console.error('Failed to persist session history:', err));
-          } else {
-            fetch(`${API_BASE}/api/save-session/${activeSessionId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            }).catch((err) => console.error('Failed to update session history:', err));
-          }
-        }
-      }, 15);
+      const last = sessionHistoryRef.current.slice(-1)[0];
+      if (last && last.response === null) last.response = responseText;
+      persistSessionHistory(responseText, dataSessionId, existingSessionId);
     } catch (error) {
       console.error("Error:", error);
+      if (streamUpdateFrameRef.current) {
+        cancelAnimationFrame(streamUpdateFrameRef.current);
+        streamUpdateFrameRef.current = null;
+      }
       setMessages((prev) => {
-        const filtered = prev.filter((msg) => !msg.isLoading);
+        const filtered = prev.filter((msg) => !msg.isLoading && !msg.isStreaming);
         return [
           ...filtered,
           {
@@ -511,7 +580,11 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         </button>
       </div>
 
-      <div className="chat-container">
+      <div
+        className="chat-container"
+        ref={chatContainerRef}
+        onScroll={handleChatScroll}
+      >
         {messages.map((message, idx) => {
           if (message.type === "quiz") {
             const { question, choices, correctIndex } = message.payload;
@@ -634,9 +707,13 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                 )}
                 {message.sender === "ME" && message.sender}
               </div>
-              <div className="message-text">
-                {formatMessage(message.text)}
-                {message.isTyping && !message.isLoading && (
+              <div className={`message-text${message.isStreaming ? " message-text-streaming" : ""}`}>
+                {message.isStreaming ? (
+                  <pre className="streaming-text">{message.text}</pre>
+                ) : (
+                  formatMessage(message.text)
+                )}
+                {message.isStreaming && (
                   <span className="typing-cursor">|</span>
                 )}
               </div>

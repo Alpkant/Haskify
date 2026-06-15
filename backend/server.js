@@ -67,8 +67,8 @@ const chatClient = new OpenAI({
   baseURL: "https://litellm.s.studiumdigitale.uni-frankfurt.de/v1/",
 });
 
-const MAIN_MODEL = "qwen2.5-coder-32b-instruct";
-const FALLBACK_MODEL = "internvl2.5-8b";
+const MAIN_MODEL = "mistral-large-3-675b-instruct-2512";
+const FALLBACK_MODEL = "gemma3:12b";
 
 // OpenAI client for embeddings (must use real OpenAI API)
 const openai = new OpenAI({
@@ -213,9 +213,59 @@ function summarizeRecentQuizzes(sessionDoc, max = 2) {
   return `QUIZ HISTORY (last ${lines.length})\n${lines.join('\n')}`;
 }
 
+function cleanResponseText(text) {
+  return (text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\t/g, '    ')
+    .replace(/^[:;,\.\-\s]+/, '')
+    .split('\n')
+    .map(line => line.replace(/[ \t]+$/g, ''))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function writeSse(res, payload) {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+async function persistAiInteraction({ sessionId, userId, query, responseText, code, output, retrieved }) {
+  const interaction = {
+    type: 'ai',
+    question: query || '',
+    aiResponse: responseText || '',
+    code: code || '',
+    output: output || '',
+    materialIds: Array.isArray(retrieved) ? retrieved.map(r => r.title) : [],
+    timestamp: new Date()
+  };
+
+  if (sessionId) {
+    await Session.findByIdAndUpdate(
+      sessionId,
+      {
+        $push: { interactions: interaction },
+        $set: {
+          lastActivity: new Date(),
+          ...(userId && { userId })
+        }
+      },
+      { new: true }
+    );
+    return { sessionId };
+  }
+
+  const newSession = new Session({
+    userId: userId || null,
+    interactions: [interaction]
+  });
+  const savedSession = await newSession.save();
+  return { sessionId: savedSession._id.toString() };
+}
+
 app.post('/ai/ask', async (req, res) => {
   try {
-    const { query, code, output, sessionId, userId } = req.body;
+    const { query, code, output, sessionId, userId, stream: useStream = true } = req.body;
 
     const simpleTestMessages = [
       'test','hello','hi','hey','cool','nice',
@@ -226,7 +276,16 @@ app.post('/ai/ask', async (req, res) => {
       msg => queryLower === msg || (queryLower.includes(msg) && queryLower.length < 5)
     );
     if (isSimpleTest) {
-      return res.json({ response: "Hi! I'm here to help with Python programming. Ask me about lists, functions, classes, loops, or any Python concepts!" });
+      const quickResponse = "Hi! I'm here to help with Python programming. Ask me about lists, functions, classes, loops, or any Python concepts!";
+      if (useStream) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        writeSse(res, { delta: quickResponse });
+        writeSse(res, { done: true });
+        return res.end();
+      }
+      return res.json({ response: quickResponse });
     }
 
 
@@ -344,71 +403,56 @@ Always connect answers back to the semester goals and keep the student actively 
       });
     }
 
+    if (useStream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+    }
+
     let responseText = "";
     for await (const chunk of stream) {
-      responseText += chunk.choices[0]?.delta?.content || "";
+      const delta = chunk.choices[0]?.delta?.content || "";
+      if (!delta) continue;
+      responseText += delta;
+      if (useStream) {
+        writeSse(res, { delta });
+      }
     }
 
-    // Clean up response artifacts
-    responseText = responseText
-      .replace(/\r\n/g, '\n')               // normalise line endings
-      .replace(/\t/g, '    ')               // make tabs explicit
-      .replace(/^[:;,\.\-\s]+/, '')         // trim odd punctuation at the start
-      .split('\n')
-      .map(line => line.replace(/[ \t]+$/g, '')) // remove trailing spaces per line
-      .join('\n')
-      .replace(/\n{3,}/g, '\n\n')           // cap blank-line runs at 2
-      .trim();
+    responseText = cleanResponseText(responseText);
 
-    // Fallback for empty responses
     if (!responseText || responseText.length < 3) {
       responseText = "I'm here to help with Python. What would you like to know?";
+      if (useStream) {
+        writeSse(res, { delta: responseText });
+      }
     }
 
+    let resolvedSessionId = sessionId || null;
     try {
-      // Create interaction object
-      const interaction = {
-        type: 'ai',
-        question: query || '',
-        aiResponse: responseText || '',
-        code: code || '',
-        output: output || '',
-        materialIds: Array.isArray(retrieved) ? retrieved.map(r => r.source === 'system' ? r.title : r.title) : [],
-        timestamp: new Date()
-      };
-
-      if (sessionId) {
-        // Update existing session with new interaction
-        await Session.findByIdAndUpdate(
-          sessionId,
-          { 
-            $push: { interactions: interaction },
-            $set: { 
-              lastActivity: new Date(),
-              ...(userId && { userId: userId })
-            }
-          },
-          { new: true }
-        );
-      } else {
-        // Create new session with first interaction
-        const newSession = new Session({
-          userId: userId || null,
-          interactions: [interaction]
-        });
-        const savedSession = await newSession.save();
-        
-        // Return the sessionId to frontend
-        return res.json({ 
-          response: responseText,
-          sessionId: savedSession._id 
-        });
-      }
+      const persisted = await persistAiInteraction({
+        sessionId,
+        userId,
+        query,
+        responseText,
+        code,
+        output,
+        retrieved
+      });
+      resolvedSessionId = persisted.sessionId || resolvedSessionId;
     } catch (logErr) {
       console.warn('Session update failed:', logErr?.message);
     }
 
-    return res.json({ response: responseText });
+    if (useStream) {
+      writeSse(res, { done: true, sessionId: resolvedSessionId || undefined, response: responseText });
+      return res.end();
+    }
+
+    return res.json({
+      response: responseText,
+      ...(resolvedSessionId && !sessionId ? { sessionId: resolvedSessionId } : {})
+    });
   } catch (error) {
     console.error("OpenAI Error:", error);
     return res.status(500).json({ response: "⚠️ AI couldn't respond" });
