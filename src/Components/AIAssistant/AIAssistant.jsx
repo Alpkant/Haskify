@@ -76,7 +76,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify! Ask about Python, your Jupyter notebook, or basic machine learning—data, plots, models, and errors. We'll work through it step by step.";
+      "Welcome to Haskify! 👋\nYou can write in English or German. Ask me about Python concepts you are practicing, exercises, errors, data analysis, OOP, or machine learning, and we'll work through it together.";
 
     setMessages([
       {
@@ -753,7 +753,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask me anything about your projects"
+          placeholder="Ask me anything about Python"
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
