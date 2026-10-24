@@ -257,8 +257,21 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     e.target.value = "";
   };
 
-  const removeMaterial = (id) => {
+  const removeMaterial = async (id) => {
     setMaterialIds((prev) => prev.filter((m) => m.id !== id));
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
+      const sessionId = await syncSessionId({ createIfMissing: false });
+      if (!sessionId) return;
+      await fetch(`${API_BASE}/api/upload-material/remove`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ materialId: id, sessionId }),
+      });
+    } catch (error) {
+      // The chip is already gone and the upload expires on its own, so a failed delete is not fatal.
+      console.error("Remove upload error:", error);
+    }
   };
 
   const activeMaterialIds = () =>

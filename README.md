@@ -158,6 +158,7 @@ haskify/
 - `POST /api/log/run`
 - `POST /api/log/quiz`
 - `POST /api/upload-material`
+- `POST /api/upload-material/remove`
 - `POST /api/session/init`
 - `POST /api/cleanup-session/:sessionId`
 

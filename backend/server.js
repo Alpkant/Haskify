@@ -803,6 +803,25 @@ app.post('/api/upload-material', uploadLimiter, async (req, res) => {
   }
 });
 
+app.post('/api/upload-material/remove', async (req, res) => {
+  try {
+    const { materialId, sessionId } = req.body || {};
+    if (!mongoose.isValidObjectId(materialId) || !sessionId) {
+      return res.status(400).json({ error: 'materialId and sessionId required' });
+    }
+    const material = await RagMaterial.findOne(
+      { _id: materialId, source: 'upload', sessionId: String(sessionId) },
+      { _id: 1 }
+    ).lean();
+    if (!material) return res.json({ success: true, deleted: 0 });
+    await deleteMaterial(material._id);
+    return res.json({ success: true, deleted: 1 });
+  } catch (error) {
+    console.error('Upload removal error:', error);
+    return res.status(500).json({ error: 'Failed to remove file' });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.send('OK');
 });
