@@ -163,6 +163,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           chatHistory: sessionHistoryRef.current, 
+          materialIds: activeMaterialIds(),
           sessionId
         }),
       });
@@ -235,10 +236,13 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         if (data.materialId) {
           setMaterialIds((prev) => [
             ...prev,
-            { id: data.materialId, title: data.title || file.name },
+            { id: data.materialId, title: data.title || file.name, expiresAt: data.expiresAt },
           ]);
-          setUploadStatus(`✓ ${data.title || file.name} uploaded (${data.chunks} chunks)`);
-          setTimeout(() => setUploadStatus(null), 3000);
+          const until = data.expiresAt
+            ? new Date(data.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : null;
+          setUploadStatus(`✓ ${data.title || file.name} attached${until ? `, available until ${until}` : ""}`);
+          setTimeout(() => setUploadStatus(null), 4000);
         } else {
           setUploadStatus(`✗ Couldn't attach ${file.name}`);
           setTimeout(() => setUploadStatus(null), 2500);
@@ -256,6 +260,21 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
   const removeMaterial = (id) => {
     setMaterialIds((prev) => prev.filter((m) => m.id !== id));
   };
+
+  const activeMaterialIds = () =>
+    materialIds
+      .filter((m) => !m.expiresAt || new Date(m.expiresAt).getTime() > Date.now())
+      .map((m) => m.id);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMaterialIds((prev) => {
+        const alive = prev.filter((m) => !m.expiresAt || new Date(m.expiresAt).getTime() > Date.now());
+        return alive.length === prev.length ? prev : alive;
+      });
+    }, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || isTyping) return;
@@ -407,7 +426,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           query,
           code: sharedState.code,
           output: sharedState.output,
-          materialIds: materialIds.map((m) => m.id),
+          materialIds: activeMaterialIds(),
           userId,
           sessionId: existingSessionId,
           stream: true,
@@ -766,7 +785,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         {/* Hidden multi-file input */}
         <input
           type="file"
-          accept="application/pdf,application/python,.py"
+          accept="application/pdf,.pdf,.py,.ipynb,.md,.txt"
           multiple
           ref={fileInputRef}
           style={{ display: "none" }}

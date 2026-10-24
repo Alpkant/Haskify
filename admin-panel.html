@@ -7,10 +7,11 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
+      max-width: 1040px;
+      margin: 40px auto;
       padding: 20px;
       background: #f5f5f5;
+      color: #222;
     }
     .container {
       background: white;
@@ -18,15 +19,25 @@
       border-radius: 8px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
-    h1 { color: #333; }
-    input, textarea, button {
+    h1 { color: #333; margin-bottom: 8px; }
+    h2 { margin-top: 36px; border-top: 1px solid #eee; padding-top: 24px; }
+    h3 { margin-bottom: 6px; }
+    .note {
+      color: #555;
+      margin-top: 0;
+      font-size: 14px;
+    }
+    input, textarea, button, select {
       width: 100%;
       padding: 10px;
-      margin: 10px 0;
+      margin: 8px 0;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 14px;
+      box-sizing: border-box;
+      background: white;
     }
+    textarea { font-family: inherit; resize: vertical; }
     button {
       background: #007bff;
       color: white;
@@ -35,176 +46,236 @@
       font-weight: bold;
     }
     button:hover { background: #0056b3; }
+    button:disabled { background: #9bb; cursor: default; }
+    button.secondary { background: #4b5563; }
+    button.secondary:hover { background: #374151; }
+    button.small {
+      width: auto;
+      margin: 0;
+      padding: 6px 10px;
+    }
+    button.danger { background: #b42318; }
+    button.danger:hover { background: #8e1b13; }
     #status {
-      margin-top: 20px;
+      position: sticky;
+      top: 12px;
+      z-index: 5;
+      margin: 16px 0;
       padding: 15px;
       border-radius: 4px;
       display: none;
+      white-space: pre-wrap;
     }
     .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-    #materials {
-      margin-top: 30px;
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
     }
-    .material-item {
-      background: #f8f9fa;
-      padding: 15px;
-      margin: 10px 0;
+    .toolbar input, .toolbar select { margin: 0; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .grid label, .stack label {
+      font-size: 13px;
+      color: #444;
+      display: block;
+    }
+    .row-buttons {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+      vertical-align: top;
+    }
+    th { color: #444; }
+    td.num { text-align: right; }
+    tr.inactive td { color: #999; }
+    .empty { color: #666; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #eef2f7;
+      font-size: 12px;
+    }
+    .pill.ok { background: #d4edda; color: #155724; }
+    .pill.warn { background: #fff3cd; color: #856404; }
+    .pill.bad { background: #f8d7da; color: #721c24; }
+    .progress div { font-size: 14px; padding: 3px 0; }
+    .chunk {
+      border: 1px solid #e5e7eb;
       border-radius: 4px;
-      border-left: 4px solid #007bff;
+      padding: 10px;
+      margin: 8px 0;
+      background: #fafafa;
     }
+    .chunk .meta { font-size: 12px; color: #555; margin-bottom: 6px; }
+    .chunk pre {
+      white-space: pre-wrap;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 12px;
+      margin: 0;
+      max-height: 220px;
+      overflow: auto;
+    }
+    code { background: #f1f1f1; padding: 1px 4px; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>📚 Haskify Admin Panel</h1>
-    
-    <h2>Upload System Material</h2>
-    <form id="uploadForm">
-      <input type="password" id="adminKey" placeholder="Admin Key" required>
-      <input type="file" id="file" accept=".pdf,.py" required>
-      <input type="text" id="title" placeholder="Title (e.g., Python Basics - Week 1)">
-      <textarea id="description" placeholder="Description" rows="3"></textarea>
-      <input type="text" id="tags" placeholder='Tags (comma-separated: loops, variables, functions)'>
-      <button type="submit">Upload System Material</button>
-    </form>
+    <h1>Haskify Admin</h1>
+    <p class="note">Open this page at <code>http://localhost:5001/admin</code> while the backend is running on this computer. Other machines cannot use it.</p>
 
-    <h2>Create User</h2>
-    <form id="createUserForm">
-      <input type="password" id="adminKeyUser" placeholder="Admin Key" required>
-      <input type="text" id="newUserId" placeholder="New User ID" required>
-      <button type="submit">Create User</button>
-    </form>
-
+    <input type="password" id="adminKey" placeholder="Admin Key" autocomplete="off">
     <div id="status"></div>
 
-    <h2>Current System Materials</h2>
-    <button onclick="loadMaterials()">Refresh List</button>
+    <h2>Course material for the tutor</h2>
+    <p class="note">Every active file here is searchable by the tutor at any time. Upload lecture slides, scripts, assignment sheets, notebooks, and code examples. Keep official solutions out: retrieved text is placed in the tutor prompt.</p>
+    <div id="ragStatus" class="note"></div>
+
+    <form id="materialForm">
+      <label class="note" for="materialFiles">Files (.pdf, .py, .ipynb, .md, .txt). Several files can share the settings below.</label>
+      <input type="file" id="materialFiles" accept=".pdf,.py,.ipynb,.md,.txt" multiple required>
+      <div class="grid">
+        <div>
+          <label for="materialCourse">Course</label>
+          <select id="materialCourse">
+            <option value="EPI">EPI</option>
+            <option value="GPR">GPR</option>
+            <option value="general">General</option>
+          </select>
+        </div>
+        <div>
+          <label for="materialKind">Type</label>
+          <select id="materialKind">
+            <option value="lecture">Lecture slides</option>
+            <option value="script">Script or notes</option>
+            <option value="assignment">Assignment sheet</option>
+            <option value="notebook">Notebook</option>
+            <option value="code">Code example</option>
+            <option value="other">Other material</option>
+          </select>
+        </div>
+        <div>
+          <label for="materialWeek">Week (blank reads it from the file name)</label>
+          <input type="number" id="materialWeek" min="0" max="30" placeholder="e.g. 3">
+        </div>
+        <div>
+          <label for="materialTags">Tags (comma-separated)</label>
+          <input type="text" id="materialTags" placeholder="loops, lists">
+        </div>
+      </div>
+      <label class="note" for="materialTitle">Title (only used when one file is selected; otherwise the file name is used)</label>
+      <input type="text" id="materialTitle" placeholder="EPI Week 3 Loops">
+      <div class="row-buttons">
+        <button type="button" class="secondary" id="previewMaterial">Preview chunks of the first file</button>
+        <button type="submit" id="uploadMaterials">Upload</button>
+      </div>
+    </form>
+    <div id="uploadProgress" class="progress"></div>
+    <div id="preview"></div>
+
+    <h3>Uploaded course material</h3>
+    <div class="toolbar">
+      <input type="text" id="materialFilter" placeholder="Filter by title, week, or type">
+      <button type="button" class="secondary small" id="refreshMaterials">Refresh</button>
+    </div>
     <div id="materials"></div>
+
+    <h2>Test retrieval</h2>
+    <p class="note">Ask what a student would ask. The result shows which excerpts the tutor would receive. Student uploads are not searched here.</p>
+    <form id="searchForm" class="toolbar">
+      <input type="text" id="searchQuery" placeholder="Wie funktioniert eine for-Schleife mit range?" required>
+      <button type="submit" class="small">Search</button>
+    </form>
+    <div id="searchResults"></div>
+
+    <h2>Users</h2>
+    <p class="note">One User ID per line. Commas and semicolons also work. Removing a user blocks sign-in and leaves existing session history in the database.</p>
+    <form id="batchUserForm">
+      <textarea id="userIds" rows="6" placeholder="student01&#10;student02&#10;student03" required></textarea>
+      <button type="submit">Add users</button>
+    </form>
+    <div class="toolbar">
+      <input type="text" id="userFilter" placeholder="Filter the list">
+      <button type="button" class="secondary small" id="refreshUsers">Refresh users</button>
+    </div>
+    <div id="users"></div>
   </div>
 
   <script>
-    const API_URL = 'http://localhost:5001'; // Change for production
+    const API_URL = window.location.protocol.startsWith('http') ? window.location.origin : 'http://localhost:5001';
+    const KIND_LABELS = {
+      lecture: 'Lecture slides',
+      script: 'Script or notes',
+      assignment: 'Assignment sheet',
+      notebook: 'Notebook',
+      code: 'Code example',
+      other: 'Other material'
+    };
 
-    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const formData = new FormData();
-      const file = document.getElementById('file').files[0];
-      const adminKey = document.getElementById('adminKey').value;
-      const title = document.getElementById('title').value;
-      const description = document.getElementById('description').value;
-      const tagsInput = document.getElementById('tags').value;
-      
-      formData.append('file', file);
-      formData.append('adminKey', adminKey);
-      
-      // Only append if values exist
-      if (title) {
-        formData.append('title', title);
-      }
-      if (description) {
-        formData.append('description', description);
-      }
-      
-      // Fix tags formatting
-      if (tagsInput) {
-        const tags = tagsInput.split(',').map(t => t.trim()).filter(t => t);
-        // Convert to proper JSON string format
-        formData.append('tags', JSON.stringify(tags));
-      }
+    function adminKey() {
+      return document.getElementById('adminKey').value;
+    }
 
-      showStatus('Uploading and generating embeddings...', 'success');
+    function requireKey() {
+      if (!adminKey()) {
+        showStatus('Enter the admin key first', 'error');
+        return false;
+      }
+      return true;
+    }
 
+    function adminHeaders(extra = {}) {
+      return { 'x-admin-key': adminKey(), ...extra };
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(`${API_URL}${path}`, options);
+      let data = {};
       try {
-        const response = await fetch(`${API_URL}/api/admin/upload-system-material`, {
-          method: 'POST',
-          body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          showStatus(`✓ Success! Uploaded "${data.title}" with ${data.chunks} chunks`, 'success');
-          document.getElementById('uploadForm').reset();
-          loadMaterials();
-        } else {
-          showStatus(`✗ Error: ${data.error}`, 'error');
-        }
-      } catch (error) {
-        console.error('Upload error:', error);
-        showStatus(`✗ Network error: ${error.message}`, 'error');
+        data = await response.json();
+      } catch {
+        data = { error: `Unexpected response (${response.status})` };
       }
-    });
+      if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+      return data;
+    }
 
-    document.getElementById('createUserForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+    function postJson(path, body) {
+      return api(path, {
+        method: 'POST',
+        headers: adminHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body)
+      });
+    }
 
-      const adminKey = document.getElementById('adminKeyUser').value || document.getElementById('adminKey').value;
-      const userId = document.getElementById('newUserId').value.trim();
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
 
-      if (!userId) {
-        showStatus('User ID is required', 'error');
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API_URL}/api/create-user`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adminKey, userId })
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-          showStatus(`✓ User "${data.user.userId}" created`, 'success');
-          e.target.reset();
-        } else {
-          showStatus(`✗ Error: ${data.error}`, 'error');
-        }
-      } catch (err) {
-        console.error('Create user error:', err);
-        showStatus(`✗ Network error: ${err.message}`, 'error');
-      }
-    });
-
-    async function loadMaterials() {
-      const adminKey = document.getElementById('adminKey').value;
-      if (!adminKey) {
-        showStatus('Enter admin key first', 'error');
-        return;
-      }
-
-      try {
-        const response = await fetch(`${API_URL}/api/admin/system-materials?adminKey=${encodeURIComponent(adminKey)}`);
-        const data = await response.json();
-
-        if (response.ok) {
-          const materialsDiv = document.getElementById('materials');
-          if (data.materials.length === 0) {
-            materialsDiv.innerHTML = '<p>No system materials uploaded yet.</p>';
-          } else {
-            materialsDiv.innerHTML = data.materials.map(m => `
-              <div class="material-item">
-                <h3>${m.title}</h3>
-                <p>${m.description || 'No description'}</p>
-                <small>
-                  Type: ${m.fileType} | 
-                  Chunks: ${m.chunksCount} | 
-                  Active: ${m.isActive ? '✓' : '✗'} | 
-                  Tags: ${m.tags?.join(', ') || 'none'}
-                </small>
-                <br><small style="color: #666;">ID: ${m.id}</small>
-              </div>
-            `).join('');
-          }
-        } else {
-          showStatus(`✗ Error: ${data.error}`, 'error');
-        }
-      } catch (error) {
-        console.error('Load error:', error);
-        showStatus(`✗ Network error: ${error.message}`, 'error');
-      }
+    function formatDate(value) {
+      if (!value) return '—';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
     }
 
     function showStatus(message, type) {
@@ -212,14 +283,383 @@
       status.textContent = message;
       status.className = type;
       status.style.display = 'block';
-      
-      // Auto-hide success messages after 5 seconds
-      if (type === 'success') {
-        setTimeout(() => {
-          status.style.display = 'none';
-        }, 5000);
+    }
+
+    let keyTimer = null;
+    document.getElementById('adminKey').addEventListener('input', () => {
+      clearTimeout(keyTimer);
+      keyTimer = setTimeout(() => {
+        if (!adminKey()) return;
+        loadRagStatus();
+        loadMaterials();
+        loadUsers();
+      }, 400);
+    });
+
+    async function loadRagStatus() {
+      if (!adminKey()) return;
+      const box = document.getElementById('ragStatus');
+      try {
+        const data = await api('/api/admin/rag/status', { headers: adminHeaders() });
+        const index = data.vectorIndex || {};
+        const tone = index.status === 'ready' ? 'ok' : index.status === 'building' ? 'warn' : 'bad';
+        const label = {
+          ready: 'Vector search ready',
+          building: 'Vector index building (search still works by scanning)',
+          missing: 'Vector index missing',
+          unavailable: 'Vector search unavailable (scanning chunks)',
+          unknown: 'Vector index not checked yet'
+        }[index.status] || index.status;
+        const legacyTotal = Object.values(data.legacy || {}).reduce((a, b) => a + b, 0);
+        box.innerHTML = `
+          <span class="pill ${tone}">${escapeHtml(label)}</span>
+          ${data.courseMaterials} course files, ${data.courseChunks} chunks.
+          ${data.uploadMaterials} student uploads alive (kept ${escapeHtml(data.uploadTtlHours)} hours).
+          ${index.status !== 'ready' ? '<button type="button" class="secondary small" id="refreshIndex">Check index</button>' : ''}
+          ${legacyTotal ? `<br>Old material from the previous RAG version: ${data.legacy.systemmaterials} files. The tutor no longer reads it. <button type="button" class="danger small" id="dropLegacy">Delete old material data</button>` : ''}
+        `;
+      } catch (error) {
+        box.textContent = `Could not read RAG status: ${error.message}`;
       }
     }
+
+    document.getElementById('ragStatus').addEventListener('click', async (event) => {
+      if (event.target.id === 'refreshIndex') {
+        try {
+          await postJson('/api/admin/rag/refresh-index', {});
+          loadRagStatus();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      }
+      if (event.target.id === 'dropLegacy') {
+        if (!window.confirm('Delete the old systemmaterials, sessionmaterials, and materialreferences collections? This cannot be undone. The original files are not stored there, so keep your own copies.')) return;
+        try {
+          const data = await postJson('/api/admin/rag/drop-legacy', {});
+          showStatus(`Removed: ${data.dropped.join(', ') || 'nothing'}`, 'success');
+          loadRagStatus();
+        } catch (error) {
+          showStatus(error.message, 'error');
+        }
+      }
+    });
+
+    function materialFormFields(file, singleFile) {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('course', document.getElementById('materialCourse').value);
+      form.append('kind', document.getElementById('materialKind').value);
+      form.append('week', document.getElementById('materialWeek').value);
+      form.append('tags', document.getElementById('materialTags').value);
+      const title = document.getElementById('materialTitle').value.trim();
+      if (singleFile && title) form.append('title', title);
+      return form;
+    }
+
+    document.getElementById('previewMaterial').addEventListener('click', async () => {
+      if (!requireKey()) return;
+      const files = document.getElementById('materialFiles').files;
+      if (!files.length) {
+        showStatus('Choose a file to preview', 'error');
+        return;
+      }
+      const previewDiv = document.getElementById('preview');
+      previewDiv.innerHTML = '<p class="note">Reading file...</p>';
+      try {
+        const data = await api('/api/admin/materials/preview', {
+          method: 'POST',
+          headers: adminHeaders(),
+          body: materialFormFields(files[0], files.length === 1)
+        });
+        const words = data.chunks.map((chunk) => chunk.wordCount);
+        previewDiv.innerHTML = `
+          <h3>Preview of ${escapeHtml(data.fileName)}</h3>
+          <p class="note">Read as ${escapeHtml(data.layout)}, ${data.pageCount} ${data.layout === 'code' ? 'lines' : 'pages or cells'},
+          ${data.chunks.length} chunks of ${Math.min(...words)} to ${Math.max(...words)} words.
+          Week ${data.meta.week ?? 'not set'}. Nothing was saved.</p>
+          ${data.chunks.map((chunk, index) => `
+            <div class="chunk">
+              <div class="meta">${index + 1}. ${escapeHtml(chunk.contextHeader)} · ${chunk.wordCount} words</div>
+              <pre>${escapeHtml(chunk.text)}</pre>
+            </div>
+          `).join('')}
+        `;
+      } catch (error) {
+        previewDiv.innerHTML = '';
+        showStatus(error.message, 'error');
+      }
+    });
+
+    document.getElementById('materialForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!requireKey()) return;
+      const files = [...document.getElementById('materialFiles').files];
+      if (!files.length) return;
+
+      const button = document.getElementById('uploadMaterials');
+      const progress = document.getElementById('uploadProgress');
+      document.getElementById('preview').innerHTML = '';
+      button.disabled = true;
+      progress.innerHTML = files.map((file, index) => `<div id="progress-${index}">${escapeHtml(file.name)}: waiting</div>`).join('');
+
+      let added = 0;
+      let failed = 0;
+      for (const [index, file] of files.entries()) {
+        const line = document.getElementById(`progress-${index}`);
+        line.textContent = `${file.name}: reading and embedding...`;
+        try {
+          const data = await api('/api/admin/materials', {
+            method: 'POST',
+            headers: adminHeaders(),
+            body: materialFormFields(file, files.length === 1)
+          });
+          const m = data.material;
+          const where = `${m.course} · week ${m.week ?? 'not set'} · ${KIND_LABELS[m.kind] || m.kind}`;
+          if (data.status === 'unchanged') {
+            line.textContent = `${file.name}: already uploaded as "${m.title}", skipped`;
+          } else {
+            line.textContent = `${file.name}: ${data.status} as "${m.title}" (${where}, ${data.chunks} chunks, ${m.language})`;
+            added += 1;
+          }
+        } catch (error) {
+          line.textContent = `${file.name}: failed, ${error.message}`;
+          line.style.color = '#b42318';
+          failed += 1;
+        }
+      }
+
+      button.disabled = false;
+      showStatus(`Finished: ${added} uploaded, ${failed} failed`, failed ? 'error' : 'success');
+      document.getElementById('materialFiles').value = '';
+      document.getElementById('materialTitle').value = '';
+      loadMaterials();
+      loadRagStatus();
+    });
+
+    let loadedMaterials = [];
+
+    async function loadMaterials() {
+      if (!adminKey()) return;
+      try {
+        const data = await api('/api/admin/materials', { headers: adminHeaders() });
+        loadedMaterials = data.materials || [];
+        renderMaterials();
+      } catch (error) {
+        showStatus(error.message, 'error');
+      }
+    }
+
+    function renderMaterials() {
+      const div = document.getElementById('materials');
+      const query = document.getElementById('materialFilter').value.trim().toLowerCase();
+      const visible = loadedMaterials.filter((m) => {
+        if (!query) return true;
+        return [m.title, m.fileName, m.course, KIND_LABELS[m.kind], m.week === null ? '' : `week ${m.week}`, m.language]
+          .join(' ')
+          .toLowerCase()
+          .includes(query);
+      });
+      if (!loadedMaterials.length) {
+        div.innerHTML = '<p class="empty">No course material uploaded yet.</p>';
+        return;
+      }
+      if (!visible.length) {
+        div.innerHTML = '<p class="empty">No material matches that filter.</p>';
+        return;
+      }
+      const totalChunks = visible.reduce((sum, m) => sum + (m.chunkCount || 0), 0);
+      div.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Course</th><th>Week</th><th>Title (${visible.length} files, ${totalChunks} chunks)</th>
+              <th>Type</th><th>Lang</th><th class="num">Chunks</th><th>Active</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${visible.map((m) => `
+              <tr class="${m.active ? '' : 'inactive'}">
+                <td>${escapeHtml(m.course)}</td>
+                <td>${m.week ?? '—'}</td>
+                <td>${escapeHtml(m.title)}<br><small class="note">${escapeHtml(m.fileName)} · ${escapeHtml(formatDate(m.createdAt))}</small></td>
+                <td>${escapeHtml(KIND_LABELS[m.kind] || m.kind)}</td>
+                <td>${escapeHtml(m.language)}</td>
+                <td class="num">${m.chunkCount}</td>
+                <td><input type="checkbox" data-active-id="${m.id}" ${m.active ? 'checked' : ''} style="width:auto;margin:0"></td>
+                <td><button type="button" class="danger small" data-remove-id="${m.id}" data-title="${escapeHtml(m.title)}">Remove</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('materialFilter').addEventListener('input', renderMaterials);
+    document.getElementById('refreshMaterials').addEventListener('click', () => {
+      if (!requireKey()) return;
+      loadMaterials();
+      loadRagStatus();
+    });
+
+    document.getElementById('materials').addEventListener('change', async (event) => {
+      const id = event.target.getAttribute('data-active-id');
+      if (!id) return;
+      try {
+        await postJson('/api/admin/materials/active', { materialId: id, active: event.target.checked });
+        const material = loadedMaterials.find((m) => m.id === id);
+        if (material) material.active = event.target.checked;
+        renderMaterials();
+      } catch (error) {
+        event.target.checked = !event.target.checked;
+        showStatus(error.message, 'error');
+      }
+    });
+
+    document.getElementById('materials').addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-remove-id]');
+      if (!button) return;
+      const title = button.getAttribute('data-title');
+      if (!window.confirm(`Remove "${title}" and all its chunks? The tutor will stop using it.`)) return;
+      button.disabled = true;
+      try {
+        await postJson('/api/admin/materials/remove', { materialId: button.getAttribute('data-remove-id') });
+        showStatus(`Removed ${title}`, 'success');
+        loadMaterials();
+        loadRagStatus();
+      } catch (error) {
+        button.disabled = false;
+        showStatus(error.message, 'error');
+      }
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!requireKey()) return;
+      const query = document.getElementById('searchQuery').value.trim();
+      const div = document.getElementById('searchResults');
+      div.innerHTML = '<p class="note">Searching...</p>';
+      try {
+        const data = await postJson('/api/admin/rag/search', { query });
+        const excerpts = data.excerpts || [];
+        div.innerHTML = `
+          <p class="note">Search mode: ${escapeHtml(data.vectorSearch)}. Question language: ${escapeHtml(data.queryLanguage)}.
+          ${excerpts.length ? `${excerpts.length} excerpts would be sent to the tutor.` : 'Nothing passed the similarity threshold, so the tutor would answer without course excerpts.'}</p>
+          ${excerpts.map((e, i) => `
+            <div class="chunk">
+              <div class="meta">${i + 1}. ${escapeHtml(e.label)} · similarity ${e.similarity.toFixed(3)} · matched by ${escapeHtml(e.matchedBy.join(' and '))}</div>
+              <pre>${escapeHtml(e.text)}</pre>
+            </div>
+          `).join('')}
+          ${(data.candidates || []).length ? `
+            <h3>Top candidates before selection</h3>
+            <table>
+              <thead><tr><th>Title</th><th>Where</th><th>Topic</th><th class="num">Similarity</th><th class="num">Vector rank</th><th class="num">Keyword rank</th></tr></thead>
+              <tbody>
+                ${data.candidates.map((c) => `
+                  <tr>
+                    <td>${escapeHtml(c.title)}${c.week !== null && c.week !== undefined ? ` (week ${c.week})` : ''}</td>
+                    <td>${escapeHtml(c.where)}</td>
+                    <td>${escapeHtml(c.heading || '')}</td>
+                    <td class="num">${c.similarity}</td>
+                    <td class="num">${c.vectorRank ?? '—'}</td>
+                    <td class="num">${c.keywordRank ?? '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>` : ''}
+        `;
+      } catch (error) {
+        div.innerHTML = '';
+        showStatus(error.message, 'error');
+      }
+    });
+
+    document.getElementById('batchUserForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!requireKey()) return;
+      try {
+        const data = await postJson('/api/admin/users/batch', { userIds: document.getElementById('userIds').value });
+        const lines = [`Added ${data.created.length}`];
+        if (data.alreadyExists.length) lines.push(`Already existed: ${data.alreadyExists.join(', ')}`);
+        if (data.invalid.length) lines.push(`Too long: ${data.invalid.join(', ')}`);
+        showStatus(lines.join('\n'), 'success');
+        if (data.created.length) document.getElementById('userIds').value = '';
+        loadUsers();
+      } catch (error) {
+        showStatus(error.message, 'error');
+      }
+    });
+
+    let loadedUsers = [];
+
+    async function loadUsers() {
+      if (!adminKey()) return;
+      try {
+        const data = await api('/api/admin/users', { headers: adminHeaders() });
+        loadedUsers = data.users || [];
+        renderUsers();
+      } catch (error) {
+        showStatus(error.message, 'error');
+      }
+    }
+
+    function renderUsers() {
+      const usersDiv = document.getElementById('users');
+      const query = document.getElementById('userFilter').value.trim().toLowerCase();
+      const visible = loadedUsers.filter((user) => user.userId.toLowerCase().includes(query));
+      if (!loadedUsers.length) {
+        usersDiv.innerHTML = '<p class="empty">No users yet.</p>';
+        return;
+      }
+      if (!visible.length) {
+        usersDiv.innerHTML = '<p class="empty">No users match that filter.</p>';
+        return;
+      }
+      usersDiv.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>User ID (${visible.length}${query ? ` of ${loadedUsers.length}` : ''})</th>
+              <th>Created</th>
+              <th>Last login</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${visible.map((user) => `
+              <tr>
+                <td>${escapeHtml(user.userId)}</td>
+                <td>${escapeHtml(formatDate(user.createdAt))}</td>
+                <td>${escapeHtml(formatDate(user.lastLogin))}</td>
+                <td><button type="button" class="danger small" data-user-id="${escapeHtml(user.userId)}">Remove</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('refreshUsers').addEventListener('click', () => {
+      if (requireKey()) loadUsers();
+    });
+    document.getElementById('userFilter').addEventListener('input', renderUsers);
+
+    document.getElementById('users').addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-user-id]');
+      if (!button) return;
+      if (!requireKey()) return;
+      const userId = button.getAttribute('data-user-id');
+      if (!window.confirm(`Remove ${userId}? They will not be able to sign in. Session history stays in the database.`)) return;
+      button.disabled = true;
+      try {
+        await postJson('/api/admin/users/remove', { userId });
+        showStatus(`Removed ${userId}`, 'success');
+        loadUsers();
+      } catch (error) {
+        showStatus(error.message, 'error');
+        button.disabled = false;
+      }
+    });
   </script>
 </body>
 </html>

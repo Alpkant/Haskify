@@ -26,7 +26,7 @@ Haskify is a modern web application designed to make learning Python and program
 Haskify is built with a modern full-stack architecture:
 
 - Frontend: React + Vite + Ace editor + react-py.
-- Backend: Express, MongoDB, OpenAI API compatability for AI chat connection with local or global models, OpenAI embeddings.
+- Backend: Express, MongoDB, OpenAI API compatability for AI chat connection with local or global models, Qwen3 embeddings through the university LiteLLM gateway.
 - Execution: Pyodide/React-Py
 - Security bits (COOP/COEP, admin key, rate limiting).
 
@@ -62,7 +62,7 @@ Haskify is built with a modern full-stack architecture:
    Create a `.env` file in the backend directory:
    ```env
    OPENROUTER_API_KEY=your_aimodel_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
+   GOETHE_API_KEY=your_litellm_gateway_key_here
    MONGODB_URI=your_mongodb_connection_string
    PORT=5001
    VITE_API_URL=http://localhost:5001
@@ -107,11 +107,18 @@ Haskify is built with a modern full-stack architecture:
 
 ### Working with Learning Materials
 
-1. Upload PDF documents using the upload button
-2. View materials in the PDF viewer
-3. Reference materials while coding
-4. You can upload system materials using admin-panel.html
-5. AI also references system materials
+1. Students can attach a PDF, `.py`, `.ipynb`, `.md`, or `.txt` file (up to 5 MB) in the chat. It is searchable for that student for 4 hours, then MongoDB deletes it.
+2. Course material (slides, scripts, assignment sheets, notebooks, code examples) is uploaded from the local admin page at `http://localhost:5001/admin` and stays available to the tutor until removed or switched off.
+3. For each question the tutor receives up to four excerpts with their source, for example "EPI week 3 lecture slides, p. 4". Assignment excerpts are marked so the tutor explains the task without solving it.
+
+### Course material retrieval
+
+- Files are split by structure: one slide per chunk for decks, headings and tasks for scripts and sheets, cells for notebooks, functions and classes for Python files.
+- Each chunk is embedded with `qwen3-embedding-8b` at 1024 dimensions through the university LiteLLM gateway, together with a short header naming the course, week, type, title, and section. Questions get a short retrieval instruction in front, as Qwen3 expects. Changing the model or dimensions in `backend/rag/config.js` requires re-uploading all course material.
+- Search combines Atlas Vector Search (index `rag_vector`, created automatically on startup) with a MongoDB text index, then adds neighbouring chunks from the same task or section.
+- Use the admin page to preview chunking before uploading and to test which excerpts a question retrieves.
+- Measure retrieval with real questions: copy `backend/scripts/rag-eval.example.json` to `backend/scripts/rag-eval.json`, fill in questions and the file or page that should answer them, and run `npm run rag:eval` in `backend`.
+- Compare embedding models with `npm run rag:bench` in `backend`. It scores each model on the passages and questions in `backend/scripts/embedding-benchmark.data.json` without touching the database.
 
 ## 🛠️ Development
 
@@ -152,11 +159,16 @@ haskify/
 - `POST /api/log/quiz`
 - `POST /api/upload-material`
 - `POST /api/session/init`
-- `POST /api/create-user` (admin key)
-- `POST /api/admin/create-user`
-- `POST /api/admin/upload-system-material`
-- `GET /api/admin/system-materials`
 - `POST /api/cleanup-session/:sessionId`
+
+Admin routes only answer requests from the same computer and need the admin key in the `x-admin-key` header:
+
+- `GET /admin`
+- `POST /api/create-user`
+- `GET /api/admin/users`, `POST /api/admin/users/batch`, `POST /api/admin/users/remove`
+- `GET /api/admin/materials`, `POST /api/admin/materials`, `POST /api/admin/materials/preview`
+- `POST /api/admin/materials/active`, `POST /api/admin/materials/remove`
+- `GET /api/admin/rag/status`, `POST /api/admin/rag/search`, `POST /api/admin/rag/refresh-index`, `POST /api/admin/rag/drop-legacy`
 - `GET /health`
 
 ## 🔧 Configuration
@@ -166,11 +178,15 @@ haskify/
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `OPENROUTER_API_KEY` | Chat completions (Gemma 3 27B) | Required |
-| `OPENAI_API_KEY` | Embeddings | Required |
+| `GOETHE_API_KEY` | Chat completions and embeddings (LiteLLM gateway) | Required |
+| `OPENAI_API_KEY` | Only for the OpenAI row in `npm run rag:bench` | Optional |
 | `MONGODB_URI` | Session storage | Required |
 | `ADMIN_KEY` | Admin panel auth | Required |
 | `PORT` / `VITE_API_URL` | Server + client URL | Required |
 | `ORIGIN_WHITELIST` (if you add stricter CORS) | |
+| `UPLOAD_TTL_HOURS` | How long student uploads stay searchable | `4` |
+| `UPLOAD_MAX_MB` | Maximum student upload size | `5` |
+| `RAG_MIN_SIMILARITY` | Minimum cosine similarity for an excerpt | `0.45` |
 
 ### Customization
 

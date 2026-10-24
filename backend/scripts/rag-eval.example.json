@@ -1,0 +1,22 @@
+[
+  {
+    "question": "Wie funktioniert eine for-Schleife mit range?",
+    "expect": { "title": "EPI Week 3", "page": 7 }
+  },
+  {
+    "question": "What does task 2b on sheet 4 ask me to do?",
+    "expect": { "week": 4, "kind": "assignment" }
+  },
+  {
+    "question": "IndexError: list index out of range",
+    "expect": { "kind": "lecture", "week": 5 }
+  },
+  {
+    "question": "Why is 0.1 + 0.2 not exactly 0.3?",
+    "expect": { "title": "GPR Week 2" }
+  },
+  {
+    "question": "hello how are you",
+    "expect": null
+  }
+]
