@@ -76,11 +76,11 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify! 👋\nYou can write in English or German. Ask me about Python concepts you are practicing, exercises, errors, data analysis, OOP, or machine learning, and we'll work through it together.";
+      "Welcome to Haskify! 👋\nQuestions about Python concepts, EPI exercises, or error messages? Ask in English or German, and we'll go through it step by step.";
 
     setMessages([
       {
-        sender: "OUR AI",
+        sender: "Haskify",
         text: initialMessage,
         isTyping: false,
       },
@@ -152,7 +152,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
     setMessages((prev) => [
       ...prev,
-      { sender: "OUR AI", text: "", isLoading: true },
+      { sender: "Haskify", text: "", isLoading: true },
     ]);
 
     try {
@@ -173,7 +173,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
       setMessages((prev) => [
         ...prev,
-        { sender: "OUR AI", type: "quiz", payload: quiz },
+        { sender: "Haskify", type: "quiz", payload: quiz },
       ]);
     } catch {
       setMessages((prev) => {
@@ -181,7 +181,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         return [
           ...withoutLoad,
           {
-            sender: "OUR AI",
+            sender: "Haskify",
             type: "error",
             text: "❌ Failed to generate quiz. Please try again.",
           },
@@ -296,7 +296,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     setInput("");
     setMessages((prev) => [
       ...prev,
-      { sender: "OUR AI", text: "", isLoading: true },
+      { sender: "Haskify", text: "", isLoading: true },
     ]);
     sessionHistoryRef.current.push({
       question: input,
@@ -346,7 +346,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         return [
           ...base,
           {
-            sender: "OUR AI",
+            sender: "Haskify",
             text: nextText,
             isStreaming: true,
           },
@@ -371,7 +371,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
     setIsTyping(true);
     setMessages((prev) => [
       ...prev,
-      { sender: "OUR AI", text: "", isStreaming: true },
+      { sender: "Haskify", text: "", isStreaming: true },
     ]);
 
     while (true) {
@@ -415,7 +415,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
       const base = prev.slice(0, -1);
       return [
         ...base,
-        { sender: "OUR AI", text: responseText, isStreaming: false },
+        { sender: "Haskify", text: responseText, isStreaming: false },
       ];
     });
     setIsTyping(false);
@@ -463,7 +463,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         setMessages((prev) => prev.filter((msg) => !msg.isLoading));
         setMessages((prev) => [
           ...prev,
-          { sender: "OUR AI", text: responseText, isStreaming: false },
+          { sender: "Haskify", text: responseText, isStreaming: false },
         ]);
       }
 
@@ -486,7 +486,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
         return [
           ...filtered,
           {
-            sender: "OUR AI",
+            sender: "Haskify",
             text: "⚠️ Error connecting to AI. Please try again later.",
             isTyping: false,
           },
@@ -629,7 +629,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                     alt="AI Logo"
                     className="ai-logo-chat"
                   />
-                  OUR AI
+                  Haskify
                 </div>
                 <div className="message-text quiz-bubble">
                   <div className="quiz-question">
@@ -714,7 +714,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
                     alt="AI Logo"
                     className="ai-logo-chat"
                   />
-                  OUR AI
+                  Haskify
                 </div>
                 <div className="message-text error-bubble">{message.text}</div>
               </div>
@@ -724,7 +724,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           return (
             <div key={idx}>
               <div className="message-sender">
-                {message.sender === "OUR AI" && (
+                {message.sender === "Haskify" && (
                   <>
                     <img
                       src={blackStars}
