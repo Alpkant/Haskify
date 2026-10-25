@@ -827,6 +827,9 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
           }}
         />
       </div>
+      <p className="ai-disclaimer">
+        AI can make mistakes. Check important answers and use them with care.
+      </p>
     </div>
   );
 }
