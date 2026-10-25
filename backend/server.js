@@ -28,8 +28,39 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Render terminates TLS at a proxy; without this every client shares the proxy IP and
+// per-IP rate limits would lock out the whole class at once.
+const trustProxy = process.env.TRUST_PROXY ?? (process.env.RENDER ? '1' : '');
+if (trustProxy !== '') {
+  app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+}
+
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PATCH'], credentials: false }));
 app.use(express.json({ limit: '2mb' }));
+
+// Only failed user ID lookups count, so students logging in from the same campus network
+// are not blocked by each other's successful logins.
+const failedLoginMessage = {
+  success: false,
+  error: 'Too many failed login attempts from this network. Please wait and try again later.'
+};
+const loginFailureLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: failedLoginMessage
+});
+const loginDailyFailureLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  limit: 150,
+  skipSuccessfulRequests: true,
+  standardHeaders: false,
+  legacyHeaders: false,
+  message: failedLoginMessage
+});
+const userLookupLimiters = [loginFailureLimiter, loginDailyFailureLimiter];
 
 const executionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -913,25 +944,19 @@ const ContactMessage = mongoose.models.ContactMessage ||
   mongoose.model('ContactMessage', contactMessageSchema);
 
 // Login endpoint
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', userLookupLimiters, async (req, res) => {
   try {
     const { userId } = req.body;
-    
-    console.log('Login attempt for userId:', userId); // Debug log
-    
+
     if (!userId || typeof userId !== 'string' || userId.trim() === '') {
       return res.status(400).json({ success: false, error: 'User ID is required' });
     }
 
     const trimmedUserId = userId.trim();
-    console.log('Trimmed userId:', trimmedUserId); // Debug log
-    
-    // Check if user exists
-    let user = await User.findOne({ userId: trimmedUserId });
-    console.log('Found user:', user); // Debug log
-    
+    const user = await User.findOne({ userId: trimmedUserId });
+
     if (!user) {
-      console.log('No user found for userId:', trimmedUserId); // Debug log
+      console.warn(`Failed login attempt from ${req.ip}`);
       return res.status(404).json({ success: false, error: 'Invalid User ID' });
     }
 
@@ -1111,15 +1136,15 @@ app.post('/api/admin/users/remove', async (req, res) => {
 });
 
 // Verify session endpoint
-app.get('/api/verify-session', async (req, res) => {
+app.get('/api/verify-session', userLookupLimiters, async (req, res) => {
   try {
     const { userId } = req.query;
-    
-    if (!userId) {
+
+    if (!userId || typeof userId !== 'string') {
       return res.status(400).json({ success: false, error: 'User ID required' });
     }
 
-    const user = await User.findOne({ userId });
+    const user = await User.findOne({ userId: userId.trim() });
     if (!user) {
       return res.status(404).json({ success: false, error: 'Invalid session' });
     }
@@ -1132,12 +1157,17 @@ app.get('/api/verify-session', async (req, res) => {
 });
 
 // Initialize or get active session for user
-app.post('/api/session/init', async (req, res) => {
+app.post('/api/session/init', userLookupLimiters, async (req, res) => {
   try {
-    const { userId, createIfMissing = true } = req.body;
- 
+    const { createIfMissing = true } = req.body;
+    const userId = typeof req.body?.userId === 'string' ? req.body.userId.trim() : '';
+
     if (!userId) {
       return res.status(400).json({ success: false, error: 'User ID required' });
+    }
+
+    if (!(await User.exists({ userId }))) {
+      return res.status(404).json({ success: false, error: 'Invalid User ID' });
     }
 
     const thirtyMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);

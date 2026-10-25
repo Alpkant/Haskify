@@ -185,6 +185,7 @@ Admin routes only answer requests from the same computer and need the admin key 
 | `ADMIN_KEY` | Admin panel auth | Required |
 | `PORT` / `VITE_API_URL` | Server + client URL | Required |
 | `ORIGIN_WHITELIST` (if you add stricter CORS) | |
+| `TRUST_PROXY` | Number of proxies in front of the backend, so rate limits see each student's IP. Set to `1` automatically on Render | unset locally |
 | `UPLOAD_TTL_HOURS` | How long student uploads stay searchable | `4` |
 | `UPLOAD_MAX_MB` | Maximum student upload size | `5` |
 | `RAG_MIN_SIMILARITY` | Minimum cosine similarity for an excerpt | `0.45` |

@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 
 
+backend/scripts/rag-eval.json
+
 # Environment
 .env
 .env.production

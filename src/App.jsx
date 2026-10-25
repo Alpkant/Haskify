@@ -46,7 +46,11 @@ print("Welcome to Haskify!", "Start coding now!" , sep="\\n")`,
           const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001";
           const response = await fetch(`${API_BASE}/api/verify-session?userId=${userData.userId}`);
           
-          if (response.ok) {
+          if (response.status === 429 || response.status >= 500) {
+            // A busy or rate-limited server says nothing about the saved ID, so keep the student signed in.
+            setUser(userData);
+            setIsAuthenticated(true);
+          } else if (response.ok) {
             const data = await response.json();
             if (data.success) {
               setUser(userData);
@@ -75,7 +79,15 @@ print("Welcome to Haskify!", "Start coding now!" , sep="\\n")`,
         }
       } catch (error) {
         console.error('Session check failed:', error);
-        localStorage.removeItem('haskify_user');
+        const savedUser = localStorage.getItem('haskify_user');
+        if (savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+            setIsAuthenticated(true);
+          } catch {
+            localStorage.removeItem('haskify_user');
+          }
+        }
       } finally {
         setLoading(false);
       }
