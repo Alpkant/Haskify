@@ -76,7 +76,7 @@ export default function AIAssistant({ sharedState, updateSharedState }) {
 
   useEffect(() => {
     const initialMessage =
-      "Welcome to Haskify! 👋\nQuestions about Python concepts, EPI exercises, or error messages? Ask in English or German, and we'll go through it step by step.";
+      "Welcome to Haskify! 👋\nQuestions about Python concepts, EPR exercises, or error messages? Ask in English or German, and we'll go through it step by step.";
 
     setMessages([
       {

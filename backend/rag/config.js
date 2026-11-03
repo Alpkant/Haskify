@@ -49,6 +49,6 @@ export const MATERIAL_KINDS = {
 
 export const COURSES = {
   GPR: 'GPR',
-  EPI: 'EPI',
+  EPR: 'EPR',
   general: 'General'
 };

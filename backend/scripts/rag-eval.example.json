@@ -1,7 +1,7 @@
 [
   {
     "question": "Wie funktioniert eine for-Schleife mit range?",
-    "expect": { "title": "EPI Week 3", "page": 7 }
+    "expect": { "title": "EPR Week 3", "page": 7 }
   },
   {
     "question": "What does task 2b on sheet 4 ask me to do?",
