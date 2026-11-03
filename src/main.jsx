@@ -7,7 +7,11 @@ if (import.meta.env.MODE === 'production') {
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './theme-dark.css'
 import App from './App.jsx'
+import { getInitialTheme, setThemeAttributes } from './theme.js'
+
+setThemeAttributes(getInitialTheme())
 
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   const originalRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);

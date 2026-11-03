@@ -3,7 +3,7 @@ import './Header.css';
 import logo from '../../assets/logo.png';
 import { Link } from 'react-router-dom';
 
-export default function Header({ onHowItWorksClick, user, onLogout }) {
+export default function Header({ onHowItWorksClick, user, onLogout, theme, onToggleTheme }) {
   return (
     <header className="haskify-header">
       <div className="header-content">
@@ -18,6 +18,13 @@ export default function Header({ onHowItWorksClick, user, onLogout }) {
         <span className="user-id" style={{ alignSelf: 'center' }}>User: {user?.userId}</span>
           <a href="/" className="nav-link">Home</a>
           <button onClick={onHowItWorksClick} className="nav-link-button">How Does It Work?</button>
+          <button
+            onClick={onToggleTheme}
+            className="nav-link-button"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
         
         <div className="user-info">
           

@@ -11,6 +11,7 @@ import ContactModal from './Components/ContactModal/ContactModal';
 import HowItWorksModal from './Components/HowItWorksModal/HowItWorksModal';
 import Login from './Components/Login/Login';
 import { PythonProvider } from 'react-py';
+import { getInitialTheme, applyTheme } from './theme';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,13 @@ print("Welcome to Haskify!", "Start coding now!" , sep="\\n")`,
   });
   const [isContactOpen, setContactOpen] = useState(false);
   const [isHowItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    setTheme(next);
+  };
 
   const loadingMessages = [
     "Getting things ready…",
@@ -212,6 +220,8 @@ print("Welcome to Haskify!", "Start coding now!" , sep="\\n")`,
                   onHowItWorksClick={() => setHowItWorksOpen(true)}
                   user={user}
                   onLogout={handleLogout}
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
                 />
                 <main className="main-content">
                   {showUploadButton && (
